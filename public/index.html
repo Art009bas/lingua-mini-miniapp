@@ -4,61 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lingua Mini</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css">
+  <!-- Подключение Telegram Web App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js?57 "></script>
 </head>
 <body>
-  <h1>
-    Lingua Mini
-    <span class="next-question-timer" id="nextQuestionTimerBlock">
-      ⏳ <span id="nextQuestionTimer">--:--</span>
-    </span>
-  </h1>
-  <div class="tabs">
-    <button class="tab active" data-tab="addWordTab">Добавить</button>
-    <button class="tab" data-tab="wordListTab">Слова (<span id="wordCount">0</span>)</button>
-    <button class="tab" data-tab="questionsTab">
-      Вопрос
-      <span id="questionInformer" class="informer"></span>
-    </button>
-  </div>
+  <div id="app">
+    <h1>
+      Lingua Mini
+      <span class="next-question-timer" id="nextQuestionTimerBlock">
+        ⏳ <span id="nextQuestionTimer">--:--</span>
+      </span>
+    </h1>
 
-  <div class="tab-content active" id="addWordTab">
-    <form id="wordForm" autocomplete="off">
-      <input type="text" id="englishWord" placeholder="English Word">
-      <div id="translations"></div>
-      <textarea id="association" placeholder="Ассоциация"></textarea>
-      <button type="submit" class="main-btn">Добавить</button>
-    </form>
-    <div class="progress-row">
-      <span class="progress-label">Прогресс:</span>
-      <span class="progress-stat good">✅ <span id="statCorrect">0</span></span>
-      <span class="progress-stat bad">❌ <span id="statWrong">0</span></span>
+    <!-- Вкладки -->
+    <div class="tabs">
+      <button class="tab active" data-tab="addWordTab">Добавить</button>
+      <button class="tab" data-tab="wordListTab">Слова (<span id="wordCount">0</span>)</button>
+      <button class="tab" data-tab="questionsTab">
+        Вопрос
+        <span id="questionInformer" class="informer"></span>
+      </button>
+    </div>
+
+    <!-- Вкладка "Добавить слово" -->
+    <div class="tab-content active" id="addWordTab">
+      <form id="wordForm">
+        <input type="text" id="englishWord" placeholder="English Word">
+        <div id="translations"></div>
+        <textarea id="association" placeholder="Ассоциация"></textarea>
+        <button type="submit" class="main-btn">Добавить</button>
+      </form>
+      <div class="progress-row">
+        <span class="progress-label">Прогресс:</span>
+        <span class="progress-stat good">✅ <span id="statCorrect">0</span></span>
+        <span class="progress-stat bad">❌ <span id="statWrong">0</span></span>
+      </div>
+    </div>
+
+    <!-- Вкладка "Список слов" -->
+    <div class="tab-content" id="wordListTab">
+      <ul id="wordList"></ul>
+    </div>
+
+    <!-- Вкладка "Вопросы" -->
+    <div class="tab-content" id="questionsTab">
+      <div class="question-box" id="questionBox">
+        <h3 id="questionText">Вопрос появится здесь</h3>
+        <div id="answerButtons"></div>
+        <div id="timer"></div>
+      </div>
+    </div>
+
+    <!-- Прогресс и достижения -->
+    <div class="progress">
+      <div class="level-row">
+        <img id="character" src="img/1-min.png" alt="Character">
+        <span id="levelName"></span>
+      </div>
+      <div class="achievements" id="achievementsBlock">
+        <h3>Достижения</h3>
+        <div id="achievementsList"></div>
+      </div>
     </div>
   </div>
 
-  <div class="tab-content" id="wordListTab">
-    <ul id="wordList"></ul>
-  </div>
-
-  <div class="tab-content" id="questionsTab">
-    <div class="question-box" id="questionBox">
-      <h3 id="questionText">Вопрос появится здесь</h3>
-      <div id="answerButtons"></div>
-      <div id="timer"></div>
-    </div>
-  </div>
-
-  <div class="progress">
-    <div class="level-row">
-      <img id="character" src="img/1-min.png" alt="Character">
-      <span id="levelName"></span>
-    </div>
-    <div class="achievements" id="achievementsBlock">
-      <h3>Достижения</h3>
-      <div id="achievementsList"></div>
-    </div>
-  </div>
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
