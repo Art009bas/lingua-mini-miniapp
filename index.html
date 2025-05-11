@@ -13,6 +13,8 @@
     .info { color: #90caf9; font-size: 0.95em; margin-bottom: 1em; }
     .success { color: #8bc34a; }
     .error { color: #ff5252; }
+    .word-list { margin-top: 1.5em; }
+    .word-item { background: #181828; border-radius: 6px; padding: 0.5em 1em; margin-bottom: 0.5em; }
   </style>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -27,9 +29,10 @@
       <button type="submit">Add Word</button>
     </form>
     <div id="result"></div>
+    <div class="word-list" id="wordList"></div>
   </div>
   <script>
-    // 1. Получаем данные пользователя из Telegram WebApp
+    // 1. Авторизация через Telegram WebApp API (только если открыто в Telegram)
     let tgUser = null;
     if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
       tgUser = Telegram.WebApp.initDataUnsafe.user;
@@ -38,42 +41,49 @@
       document.getElementById('authInfo').textContent = "❗ Не удалось получить данные Telegram. Откройте через Telegram.";
     }
 
-    // 2. Обработка формы
-    document.getElementById('wordForm').onsubmit = function(e) {
-      e.preventDefault();
-      if (!tgUser) {
-        document.getElementById('result').innerHTML = '<span class="error">Нет авторизации Telegram!</span>';
+    // 2. Храним слова в LocalStorage (по user_id, если есть)
+    function getUserKey() {
+      return tgUser ? 'lingua_words_' + tgUser.id : 'lingua_words_guest';
+    }
+    function getWords() {
+      try {
+        return JSON.parse(localStorage.getItem(getUserKey())) || [];
+      } catch { return []; }
+    }
+    function saveWords(words) {
+      localStorage.setItem(getUserKey(), JSON.stringify(words));
+    }
+    function renderWords() {
+      const words = getWords();
+      const list = document.getElementById('wordList');
+      if (!words.length) {
+        list.innerHTML = '<span style="color:#bbb;">Нет добавленных слов.</span>';
         return;
       }
+      list.innerHTML = words.map(w =>
+        `<div class="word-item"><b>${w.english}</b> — ${w.russian}${w.association ? `<br><small>💡 ${w.association}</small>` : ''}</div>`
+      ).join('');
+    }
+
+    // 3. Обработка формы
+    document.getElementById('wordForm').onsubmit = function(e) {
+      e.preventDefault();
       const english = document.getElementById('englishWord').value.trim();
       const russian = document.getElementById('russianWord').value.trim();
       const association = document.getElementById('association').value.trim();
-      fetch('https://LinguaMini.pythonanywhere.com/miniapp/add_word', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          user_id: tgUser.id,
-          username: tgUser.username,
-          first_name: tgUser.first_name,
-          last_name: tgUser.last_name,
-          english: english,
-          russian: russian,
-          association: association
-        })
-      })
-      .then(r => r.json())
-      .then(resp => {
-        if (resp.status === 'ok') {
-          document.getElementById('result').innerHTML = '<span class="success">Слово добавлено!</span>';
-          document.getElementById('wordForm').reset();
-        } else {
-          document.getElementById('result').innerHTML = '<span class="error">Ошибка: ' + (resp.error || 'Неизвестно') + '</span>';
-        }
-      })
-      .catch(() => {
-        document.getElementById('result').innerHTML = '<span class="error">Ошибка соединения с сервером.</span>';
-      });
+      if (!english || !russian) {
+        document.getElementById('result').innerHTML = '<span class="error">Заполните оба поля!</span>';
+        return;
+      }
+      const words = getWords();
+      words.push({ english, russian, association });
+      saveWords(words);
+      document.getElementById('result').innerHTML = '<span class="success">Слово добавлено!</span>';
+      document.getElementById('wordForm').reset();
+      renderWords();
     };
+
+    renderWords();
   </script>
 </body>
 </html>
