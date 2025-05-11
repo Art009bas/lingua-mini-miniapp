@@ -1,0 +1,430 @@
+/* Добавим в начало файла */
+:root {
+  --bg-color: #232336;
+  --text-color: #fff;
+  --primary-color: #4caf50;
+  --primary-hover: #388e3c;
+  --secondary-color: #1976d2;
+  --error-color: #ff5252;
+  --border-radius: 8px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-color: #f5f5f5;
+    --text-color: #212121;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Увеличим размеры элементов для мобильных */
+.tab {
+  padding: 0.8rem 0;
+  font-size: 1.1rem;
+}
+
+#wordForm input, #wordForm textarea {
+  padding: 0.8rem;
+  font-size: 1.1rem;
+}
+
+.main-btn {
+  padding: 0.8rem 0;
+  font-size: 1.1rem;
+}
+
+/* Адаптация для маленьких экранов */
+@media (max-width: 400px) {
+  .word-item-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+  
+  .word-stats, .word-actions {
+    align-self: flex-end;
+  }
+}
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #232336;
+  color: #fff;
+  margin: 0;
+  padding: 0;
+  min-width: 380px;
+  max-width: 420px;
+  box-sizing: border-box;
+}
+
+h1 {
+  font-size: 1.3rem;
+  text-align: center;
+  margin: 1rem 0 0.5rem 0;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+}
+
+.next-question-timer {
+  font-size: 1rem;
+  color: #90caf9;
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0.5rem 0.5rem 0.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #181828;
+  white-space: nowrap;
+}
+.tab {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  padding: 0.5rem 0;
+  background: none;
+  border: none;
+  color: #bbb;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  outline: none;
+  position: relative;
+}
+.tab.active {
+  background: #4caf50;
+  color: #fff;
+}
+.informer {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: #ff5252;
+  border-radius: 50%;
+  margin-left: 0.3em;
+  vertical-align: middle;
+  box-shadow: 0 0 4px #ff5252;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.informer.active {
+  opacity: 1;
+}
+
+.tab-content {
+  display: none;
+  padding: 0.5rem 1rem 0.5rem 1rem;
+}
+.tab-content.active {
+  display: block;
+}
+
+#wordForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+#wordForm input, #wordForm textarea {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: none;
+  font-size: 1rem;
+  background: #2d2d44;
+  color: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+#wordForm textarea {
+  min-height: 50px;
+  resize: vertical;
+}
+#translations .translation-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+}
+#translations input {
+  flex: 1;
+  min-width: 0;
+}
+#translations button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: #4caf50;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#translations button:hover {
+  background: #388e3c;
+}
+.main-btn {
+  background: #4caf50;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 0;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 0.2rem;
+  transition: background 0.2s;
+}
+.main-btn:hover {
+  background: #388e3c;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 0.7rem;
+  font-size: 1.1rem;
+  justify-content: center;
+}
+.progress-label {
+  color: #bbb;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+}
+.progress-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 1.1rem;
+}
+.progress-stat.good { color: #8bc34a; }
+.progress-stat.bad { color: #ff5252; }
+
+#wordList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+#wordList li {
+  background: #2d2d44;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  gap: 0.2rem;
+}
+.word-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  justify-content: space-between;
+}
+.word-main {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.word-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95em;
+  color: #bbb;
+  min-width: 90px;
+}
+.word-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+#wordList button {
+  width: 22px;
+  height: 22px;
+  font-size: 0.7em;
+  padding: 0;
+  margin-left: 0.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff4d4d;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#wordList button.edit-word {
+  background: #4caf50;
+}
+#wordList button.edit-word:hover {
+  background: #388e3c;
+}
+#wordList button:hover {
+  background: #c62828;
+}
+
+.question-box {
+  background: #2d2d44;
+  border-radius: 8px;
+  padding: 1rem 0.5rem 0.7rem 0.5rem;
+  margin-bottom: 0.5rem;
+  min-height: 120px;
+}
+#answerButtons {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+#answerButtons button {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 1.1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#answerButtons button:hover {
+  background: #0d47a1;
+}
+#timer {
+  margin-top: 0.7rem;
+  font-size: 0.95rem;
+  color: #ffeb3b;
+  text-align: center;
+}
+
+.progress {
+  margin: 1rem 0 0.5rem 0;
+  text-align: center;
+}
+.level-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+.progress img {
+  width: 70px;
+  height: 70px;
+  margin: 0.3rem 0;
+  border-radius: 50%;
+  background: #181828;
+  border: 3px solid #bdbdbd;
+  transition: border-color 0.3s;
+  object-fit: cover;
+}
+#levelName {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #4caf50;
+  text-shadow: 0 1px 4px #000, 0 0 2px #fff;
+  padding: 0.2em 0.5em;
+  border-radius: 8px;
+  background: rgba(76,175,80,0.08);
+  border: 1px solid #4caf50;
+  margin-left: 0.5em;
+  min-width: 120px;
+  display: inline-block;
+}
+
+.achievements {
+  margin-top: 0.5rem;
+}
+.achievements h3 {
+  margin: 0 0 0.2rem 0;
+  font-size: 1rem;
+  color: #bbb;
+}
+#achievementsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: center;
+  min-height: 1.5rem;
+}
+.achievement {
+  background: rgba(76,175,80,0.12);
+  border-radius: 5px;
+  padding: 0.2rem 0.5rem;
+  color: #4caf50;
+  font-size: 0.92em;
+  font-weight: 500;
+  border: 1px solid #4caf50;
+  opacity: 0.95;
+  transition: background 0.2s;
+}
+.achievement.negative {
+  color: #ff5252;
+  border-color: #ff5252;
+  background: rgba(255,82,82,0.10);
+}
+#showAllAch {
+  background: none;
+  border: none;
+  color: #1976d2;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.92em;
+  margin-left: 0.5em;
+  padding: 0;
+  opacity: 0.85;
+}
+#showAllAch:hover {
+  color: #0d47a1;
+  opacity: 1;
+}
+#telegramPage {
+  background: #232336;
+  color: #fff;
+  min-height: 300px;
+  padding: 1em;
+}
+#tgConnectBlock input[type="text"] {
+  padding: 0.5em;
+  border-radius: 6px;
+  border: none;
+  font-size: 1em;
+  background: #2d2d44;
+  color: #fff;
+  margin-bottom: 0.5em;
+}
+#tgConnectBlock button {
+  background: #4caf50;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5em 1em;
+  font-size: 1em;
+  cursor: pointer;
+}
+#tgConnectBlock label {
+  font-size: 1em;
+  color: #fff;
+}
