@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Lingua Mini — Telegram Mini App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background: #232336; color: #fff; margin: 0; padding: 0; }
+    .container { max-width: 400px; margin: 2em auto; background: #2d2d44; border-radius: 10px; padding: 2em; }
+    h1 { text-align: center; }
+    input, textarea, button { width: 100%; margin: 0.5em 0; padding: 0.7em; border-radius: 6px; border: none; }
+    button { background: #4caf50; color: #fff; font-size: 1.1em; cursor: pointer; }
+    .info { color: #90caf9; font-size: 0.95em; margin-bottom: 1em; }
+    .success { color: #8bc34a; }
+    .error { color: #ff5252; }
+  </style>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Lingua Mini</h1>
+    <div id="authInfo" class="info"></div>
+    <form id="wordForm">
+      <input type="text" id="englishWord" placeholder="English Word" required>
+      <input type="text" id="russianWord" placeholder="Russian Translation" required>
+      <textarea id="association" placeholder="Association (optional)"></textarea>
+      <button type="submit">Add Word</button>
+    </form>
+    <div id="result"></div>
+  </div>
+  <script>
+    // 1. Получаем данные пользователя из Telegram WebApp
+    let tgUser = null;
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
+      tgUser = Telegram.WebApp.initDataUnsafe.user;
+      document.getElementById('authInfo').textContent = `👤 ${tgUser.first_name} ${tgUser.last_name || ''} (@${tgUser.username || ''})`;
+    } else {
+      document.getElementById('authInfo').textContent = "❗ Не удалось получить данные Telegram. Откройте через Telegram.";
+    }
+
+    // 2. Обработка формы
+    document.getElementById('wordForm').onsubmit = function(e) {
+      e.preventDefault();
+      if (!tgUser) {
+        document.getElementById('result').innerHTML = '<span class="error">Нет авторизации Telegram!</span>';
+        return;
+      }
+      const english = document.getElementById('englishWord').value.trim();
+      const russian = document.getElementById('russianWord').value.trim();
+      const association = document.getElementById('association').value.trim();
+      fetch('https://LinguaMini.pythonanywhere.com/miniapp/add_word', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_id: tgUser.id,
+          username: tgUser.username,
+          first_name: tgUser.first_name,
+          last_name: tgUser.last_name,
+          english: english,
+          russian: russian,
+          association: association
+        })
+      })
+      .then(r => r.json())
+      .then(resp => {
+        if (resp.status === 'ok') {
+          document.getElementById('result').innerHTML = '<span class="success">Слово добавлено!</span>';
+          document.getElementById('wordForm').reset();
+        } else {
+          document.getElementById('result').innerHTML = '<span class="error">Ошибка: ' + (resp.error || 'Неизвестно') + '</span>';
+        }
+      })
+      .catch(() => {
+        document.getElementById('result').innerHTML = '<span class="error">Ошибка соединения с сервером.</span>';
+      });
+    };
+  </script>
+</body>
+</html>
