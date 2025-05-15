@@ -1,89 +1,122 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Lingua Mini — Telegram Mini App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial, sans-serif; background: #232336; color: #fff; margin: 0; padding: 0; }
-    .container { max-width: 400px; margin: 2em auto; background: #2d2d44; border-radius: 10px; padding: 2em; }
-    h1 { text-align: center; }
-    input, textarea, button { width: 100%; margin: 0.5em 0; padding: 0.7em; border-radius: 6px; border: none; }
-    button { background: #4caf50; color: #fff; font-size: 1.1em; cursor: pointer; }
-    .info { color: #90caf9; font-size: 0.95em; margin-bottom: 1em; }
-    .success { color: #8bc34a; }
-    .error { color: #ff5252; }
-    .word-list { margin-top: 1.5em; }
-    .word-item { background: #181828; border-radius: 6px; padding: 0.5em 1em; margin-bottom: 0.5em; }
-  </style>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Протокол Планёрок</title>
+    <script src="https://cdn.tailwindcss.com "></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css ">
+    <script src="https://telegram.org/js/telegram-web-app.js "></script>
+    <style>
+        /* Стили можно оставить как в оригинале или использовать CDN */
+        body {
+            font-family: sans-serif;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Lingua Mini</h1>
-    <div id="authInfo" class="info"></div>
-    <form id="wordForm">
-      <input type="text" id="englishWord" placeholder="English Word" required>
-      <input type="text" id="russianWord" placeholder="Russian Translation" required>
-      <textarea id="association" placeholder="Association (optional)"></textarea>
-      <button type="submit">Add Word</button>
-    </form>
-    <div id="result"></div>
-    <div class="word-list" id="wordList"></div>
-  </div>
-  <script>
-    // 1. Авторизация через Telegram WebApp API (только если открыто в Telegram)
-    let tgUser = null;
-    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
-      tgUser = Telegram.WebApp.initDataUnsafe.user;
-      document.getElementById('authInfo').textContent = `👤 ${tgUser.first_name} ${tgUser.last_name || ''} (@${tgUser.username || ''})`;
-    } else {
-      document.getElementById('authInfo').textContent = "❗ Не удалось получить данные Telegram. Откройте через Telegram.";
-    }
+<body class="bg-gray-50 min-h-screen p-4">
+    <div id="app" class="max-w-3xl mx-auto">
+        <!-- Контент будет здесь -->
+        <h1 class="text-xl font-bold text-center mb-4">Протокол Планёрок</h1>
+        <div id="tasks-container" class="space-y-3"></div>
+        <input type="text" id="new-task-input" placeholder="Новая задача..." class="w-full p-2 border rounded mb-2">
+        <button onclick="addTask()" class="w-full bg-blue-500 text-white p-2 rounded">Добавить</button>
+    </div>
 
-    // 2. Храним слова в LocalStorage (по user_id, если есть)
-    function getUserKey() {
-      return tgUser ? 'lingua_words_' + tgUser.id : 'lingua_words_guest';
-    }
-    function getWords() {
-      try {
-        return JSON.parse(localStorage.getItem(getUserKey())) || [];
-      } catch { return []; }
-    }
-    function saveWords(words) {
-      localStorage.setItem(getUserKey(), JSON.stringify(words));
-    }
-    function renderWords() {
-      const words = getWords();
-      const list = document.getElementById('wordList');
-      if (!words.length) {
-        list.innerHTML = '<span style="color:#bbb;">Нет добавленных слов.</span>';
-        return;
-      }
-      list.innerHTML = words.map(w =>
-        `<div class="word-item"><b>${w.english}</b> — ${w.russian}${w.association ? `<br><small>💡 ${w.association}</small>` : ''}</div>`
-      ).join('');
-    }
+    <script>
+        const state = {
+            tasks: [],
+            user: null,
+            isAuthenticated: false
+        };
 
-    // 3. Обработка формы
-    document.getElementById('wordForm').onsubmit = function(e) {
-      e.preventDefault();
-      const english = document.getElementById('englishWord').value.trim();
-      const russian = document.getElementById('russianWord').value.trim();
-      const association = document.getElementById('association').value.trim();
-      if (!english || !russian) {
-        document.getElementById('result').innerHTML = '<span class="error">Заполните оба поля!</span>';
-        return;
-      }
-      const words = getWords();
-      words.push({ english, russian, association });
-      saveWords(words);
-      document.getElementById('result').innerHTML = '<span class="success">Слово добавлено!</span>';
-      document.getElementById('wordForm').reset();
-      renderWords();
-    };
+        // Подключение Telegram WebApp
+        const tg = window.Telegram.WebApp;
 
-    renderWords();
-  </script>
+        // Расширяем окно на весь экран
+        tg.ready();
+        tg.expand();
+
+        // Авторизация через Telegram
+        function handleTelegramAuth(userData) {
+            state.user = {
+                id: userData.id,
+                first_name: userData.first_name,
+                last_name: userData.last_name || '',
+                username: userData.username || '',
+                photo_url: userData.photo_url || 'https://via.placeholder.com/64 '
+            };
+            state.isAuthenticated = true;
+            loadTasks();
+        }
+
+        function saveTasks() {
+            localStorage.setItem(`tasks_${state.user.id}`, JSON.stringify(state.tasks));
+        }
+
+        function loadTasks() {
+            const saved = localStorage.getItem(`tasks_${state.user.id}`);
+            if (saved) {
+                state.tasks = JSON.parse(saved);
+            } else {
+                state.tasks = [];
+            }
+            renderTasks();
+        }
+
+        function addTask() {
+            const input = document.getElementById('new-task-input');
+            const text = input.value.trim();
+            if (!text) return;
+            const task = {
+                id: Date.now(),
+                text,
+                completed: false
+            };
+            state.tasks.push(task);
+            input.value = '';
+            renderTasks();
+            saveTasks();
+        }
+
+        function toggleComplete(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                renderTasks();
+                saveTasks();
+            }
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-container');
+            container.innerHTML = '';
+            state.tasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-2 bg-white border rounded shadow-sm";
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleComplete(${task.id})" class="w-4 h-4">
+                        <span class="${task.completed ? 'line-through text-gray-400' : ''}">${task.text}</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Инициализация
+        function init() {
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                handleTelegramAuth(tg.initDataUnsafe.user);
+            } else {
+                alert("Вы должны запустить это приложение из Telegram");
+            }
+        }
+
+        init();
+    </script>
 </body>
 </html>
