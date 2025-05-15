@@ -2,150 +2,193 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera & Video Recorder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Video Recorder</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Custom styles */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior: contain;
+        }
+        
         #camera-feed {
             transform: scaleX(-1); /* Mirror effect */
         }
-        .camera-container {
-            position: relative;
-            aspect-ratio: 16/9;
+        
+        .video-thumbnail {
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .camera-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            pointer-events: none;
+        
+        .video-thumbnail:active {
+            transform: scale(0.98);
         }
+        
         .recording-indicator {
             animation: pulse 1.5s infinite;
         }
+        
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
-        .video-thumbnail {
-            transition: transform 0.2s;
+        
+        /* Fullscreen modal */
+        .modal {
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            opacity: 0;
         }
-        .video-thumbnail:hover {
-            transform: scale(1.03);
+        
+        .modal.active {
+            pointer-events: auto;
+            opacity: 1;
         }
-        #video-history {
-            max-height: 300px;
-            overflow-y: auto;
+        
+        /* Video player controls */
+        .video-controls {
+            transition: opacity 0.3s ease;
         }
-        /* Custom scrollbar */
-        #video-history::-webkit-scrollbar {
-            width: 6px;
+        
+        .video-player:hover .video-controls {
+            opacity: 1;
         }
-        #video-history::-webkit-scrollbar-track {
-            background: #374151;
+        
+        /* Progress bar */
+        .progress-bar {
+            height: 3px;
         }
-        #video-history::-webkit-scrollbar-thumb {
-            background: #6B7280;
-            border-radius: 3px;
+        
+        .progress-filled {
+            width: 0%;
+        }
+        
+        /* Swipeable area */
+        .swipe-area {
+            touch-action: pan-y;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
-    <div class="max-w-2xl w-full">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center">
-            <i class="fas fa-camera mr-2"></i>Camera & Video Recorder
-        </h1>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+    <!-- Main App Screen -->
+    <div class="container mx-auto px-4 py-6 max-w-md">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">My Videos</h1>
+            <button id="new-recording-btn" class="bg-blue-500 text-white p-3 rounded-full shadow-md">
+                <i class="fas fa-plus"></i>
+            </button>
+        </header>
         
-        <!-- Camera Preview -->
-        <div class="camera-container bg-black rounded-xl overflow-hidden shadow-lg mb-4 sm:mb-6">
-            <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover"></video>
-            <div class="camera-overlay p-3 sm:p-4">
-                <div class="flex justify-between w-full">
-                    <span id="recording-status" class="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs sm:text-sm hidden">
-                        <i class="fas fa-circle text-red-500 recording-indicator mr-1"></i>REC
-                        <span id="recording-time">00:00</span>
-                    </span>
-                    <span id="resolution-display" class="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs sm:text-sm"></span>
-                </div>
-                <div class="flex justify-center gap-4">
-                    <button id="capture-btn" class="bg-white rounded-full h-10 w-10 sm:h-12 sm:w-12 border-2 sm:border-4 border-gray-300 shadow-lg pointer-events-auto hidden">
-                        <i class="fas fa-camera text-gray-700"></i>
-                    </button>
-                    <button id="record-btn" class="bg-white rounded-full h-10 w-10 sm:h-12 sm:w-12 border-2 sm:border-4 border-gray-300 shadow-lg pointer-events-auto hidden">
-                        <i class="fas fa-video text-gray-700"></i>
-                    </button>
-                </div>
-                <div></div>
+        <!-- Video History Grid -->
+        <div id="video-history" class="grid grid-cols-2 gap-3">
+            <div class="text-center py-10 text-gray-400" id="empty-history-message">
+                <i class="fas fa-video text-3xl mb-2"></i>
+                <p>No videos yet</p>
             </div>
+            <!-- Videos will be added here dynamically -->
+        </div>
+    </div>
+    
+    <!-- Recording Modal (Fullscreen) -->
+    <div id="recording-modal" class="modal fixed inset-0 bg-white z-50 flex flex-col">
+        <!-- Camera Preview -->
+        <div class="flex-1 relative">
+            <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover"></video>
+            
+            <!-- Recording Indicator -->
+            <div id="recording-status" class="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm hidden items-center">
+                <i class="fas fa-circle recording-indicator mr-2"></i>
+                <span id="recording-time">00:00</span>
+            </div>
+            
+            <!-- Close Button -->
+            <button id="close-recording" class="absolute top-4 right-4 bg-white bg-opacity-80 text-gray-800 p-2 rounded-full">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         
         <!-- Controls -->
-        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-6">
-            <button id="start-camera" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition flex items-center justify-center">
-                <i class="fas fa-play mr-2"></i> Start Camera
+        <div class="bg-white py-4 px-6 flex flex-col items-center border-t border-gray-100">
+            <!-- Record Button -->
+            <button id="record-btn" class="bg-red-500 text-white p-5 rounded-full shadow-lg mb-4">
+                <i class="fas fa-circle text-xl"></i>
             </button>
-            <button id="stop-camera" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition disabled:opacity-50 flex items-center justify-center" disabled>
-                <i class="fas fa-stop mr-2"></i> Stop Camera
-            </button>
-            <button id="switch-camera" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition hidden flex items-center justify-center">
-                <i class="fas fa-sync-alt mr-2"></i> Switch
+            
+            <!-- Timer -->
+            <div class="text-gray-500 text-sm mb-2 hidden" id="recording-timer">00:00</div>
+            
+            <!-- Flip Camera -->
+            <button id="flip-camera" class="absolute left-6 bottom-6 bg-white bg-opacity-80 text-gray-800 p-3 rounded-full shadow">
+                <i class="fas fa-camera-rotate"></i>
             </button>
         </div>
-        
-        <!-- Settings Panel -->
-        <div class="mb-6 bg-gray-800 p-4 rounded-lg hidden" id="settings-panel">
-            <h2 class="text-lg sm:text-xl font-semibold mb-3 flex items-center">
-                <i class="fas fa-cog mr-2"></i> Camera Settings
-            </h2>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-sm font-medium mb-1"><i class="fas fa-video mr-1"></i> Camera</label>
-                    <select id="camera-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm sm:text-base"></select>
+    </div>
+    
+    <!-- Video Player Modal (Fullscreen) -->
+    <div id="video-player-modal" class="modal fixed inset-0 bg-black z-50 flex flex-col">
+        <div class="flex-1 relative video-player">
+            <video id="video-player" class="w-full h-full object-contain"></video>
+            
+            <!-- Close Button -->
+            <button id="close-player" class="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-3 rounded-full">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <!-- Video Controls -->
+            <div class="video-controls absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4 opacity-0 transition-opacity">
+                <!-- Progress Bar -->
+                <div class="progress-bar bg-gray-600 rounded-full mb-3">
+                    <div class="progress-filled bg-blue-500 h-full rounded-full"></div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1"><i class="fas fa-expand mr-1"></i> Resolution</label>
-                    <select id="resolution-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm sm:text-base"></select>
+                
+                <div class="flex justify-between items-center">
+                    <!-- Current Time -->
+                    <span id="current-time" class="text-white text-sm">00:00</span>
+                    
+                    <!-- Play/Pause Button -->
+                    <button id="play-pause" class="bg-white bg-opacity-20 text-white p-3 rounded-full">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    
+                    <!-- Duration -->
+                    <span id="duration" class="text-white text-sm">00:00</span>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Video History -->
-        <div class="bg-gray-800 p-4 rounded-lg" id="history-panel">
-            <h2 class="text-lg sm:text-xl font-semibold mb-3 flex items-center">
-                <i class="fas fa-history mr-2"></i> Video History
-            </h2>
-            <div id="video-history" class="space-y-3">
-                <p class="text-gray-400 text-center py-4" id="empty-history-message">
-                    No recordings yet. Start recording to see your videos here.
-                </p>
-                <!-- Videos will be added here dynamically -->
             </div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const video = document.getElementById('camera-feed');
-            const startBtn = document.getElementById('start-camera');
-            const stopBtn = document.getElementById('stop-camera');
-            const switchBtn = document.getElementById('switch-camera');
-            const captureBtn = document.getElementById('capture-btn');
+            // DOM Elements
+            const videoHistory = document.getElementById('video-history');
+            const emptyHistoryMessage = document.getElementById('empty-history-message');
+            const newRecordingBtn = document.getElementById('new-recording-btn');
+            const recordingModal = document.getElementById('recording-modal');
+            const videoPlayerModal = document.getElementById('video-player-modal');
+            const closeRecording = document.getElementById('close-recording');
+            const closePlayer = document.getElementById('close-player');
+            
+            // Camera elements
+            const cameraFeed = document.getElementById('camera-feed');
             const recordBtn = document.getElementById('record-btn');
             const recordingStatus = document.getElementById('recording-status');
             const recordingTime = document.getElementById('recording-time');
-            const resolutionDisplay = document.getElementById('resolution-display');
-            const settingsPanel = document.getElementById('settings-panel');
-            const cameraSelect = document.getElementById('camera-select');
-            const resolutionSelect = document.getElementById('resolution-select');
-            const videoHistory = document.getElementById('video-history');
-            const emptyHistoryMessage = document.getElementById('empty-history-message');
+            const recordingTimer = document.getElementById('recording-timer');
+            const flipCamera = document.getElementById('flip-camera');
             
+            // Video player elements
+            const videoPlayer = document.getElementById('video-player');
+            const playPauseBtn = document.getElementById('play-pause');
+            const currentTimeEl = document.getElementById('current-time');
+            const durationEl = document.getElementById('duration');
+            const progressBar = document.querySelector('.progress-bar');
+            const progressFilled = document.querySelector('.progress-filled');
+            
+            // Variables
             let stream = null;
             let mediaRecorder = null;
             let recordedChunks = [];
@@ -154,137 +197,121 @@
             let recordingInterval = null;
             let recordingSeconds = 0;
             let videoHistoryData = JSON.parse(localStorage.getItem('videoHistory')) || [];
+            let isFrontCamera = true;
+            let touchStartX = 0;
+            let touchEndX = 0;
             
-            // Load video history
-            renderVideoHistory();
+            // Initialize the app
+            init();
             
-            // Start camera
-            startBtn.addEventListener('click', async function() {
+            function init() {
+                // Load video history
+                renderVideoHistory();
+                
+                // Event listeners
+                newRecordingBtn.addEventListener('click', openRecordingModal);
+                closeRecording.addEventListener('click', closeRecordingModal);
+                closePlayer.addEventListener('click', closeVideoPlayer);
+                recordBtn.addEventListener('click', toggleRecording);
+                flipCamera.addEventListener('click', switchCamera);
+                
+                // Video player controls
+                playPauseBtn.addEventListener('click', togglePlayPause);
+                videoPlayer.addEventListener('timeupdate', updateProgressBar);
+                videoPlayer.addEventListener('click', toggleVideoControls);
+                videoPlayer.addEventListener('ended', videoEnded);
+                
+                // Progress bar click
+                progressBar.addEventListener('click', seek);
+                
+                // Touch events for swipe gestures
+                videoPlayer.addEventListener('touchstart', handleTouchStart, false);
+                videoPlayer.addEventListener('touchmove', handleTouchMove, false);
+                videoPlayer.addEventListener('touchend', handleTouchEnd, false);
+            }
+            
+            // Render video history as grid
+            function renderVideoHistory() {
+                if (videoHistoryData.length === 0) {
+                    emptyHistoryMessage.classList.remove('hidden');
+                    return;
+                }
+                
+                emptyHistoryMessage.classList.add('hidden');
+                videoHistory.innerHTML = '';
+                
+                videoHistoryData.forEach(video => {
+                    const videoItem = document.createElement('div');
+                    videoItem.className = 'video-thumbnail bg-white rounded-lg overflow-hidden';
+                    videoItem.innerHTML = `
+                        <div class="relative pb-[56.25%]">
+                            <video src="${video.url}" class="absolute top-0 left-0 w-full h-full object-cover"></video>
+                            <div class="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
+                                ${formatDuration(video.duration)}
+                            </div>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition">
+                                <i class="fas fa-play text-white text-2xl opacity-0 hover:opacity-100 transition"></i>
+                            </div>
+                        </div>
+                        <div class="p-2">
+                            <div class="text-xs text-gray-500">${formatDate(video.timestamp)}</div>
+                        </div>
+                    `;
+                    
+                    videoItem.addEventListener('click', () => playVideo(video));
+                    videoHistory.appendChild(videoItem);
+                });
+            }
+            
+            // Open recording modal
+            async function openRecordingModal() {
+                recordingModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                
                 try {
                     const constraints = {
                         video: {
                             width: { ideal: 1280 },
                             height: { ideal: 720 },
-                            facingMode: 'environment'
+                            facingMode: isFrontCamera ? 'user' : 'environment'
                         },
-                        audio: true // Enable audio for video recording
+                        audio: true
                     };
                     
                     stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    video.srcObject = stream;
-                    
-                    startBtn.disabled = true;
-                    stopBtn.disabled = false;
-                    switchBtn.classList.remove('hidden');
-                    captureBtn.classList.remove('hidden');
-                    recordBtn.classList.remove('hidden');
-                    settingsPanel.classList.remove('hidden');
-                    
-                    // Update resolution display
-                    const track = stream.getVideoTracks()[0];
-                    const settings = track.getSettings();
-                    resolutionDisplay.textContent = `${settings.width}×${settings.height}`;
-                    
-                    // Get available cameras
-                    await getCameras();
-                    
-                    // Get available resolutions for current camera
-                    await getResolutions();
+                    cameraFeed.srcObject = stream;
                     
                     // Initialize media recorder
                     initMediaRecorder();
                     
+                    // Get current device ID
+                    const track = stream.getVideoTracks()[0];
+                    currentDeviceId = track.getSettings().deviceId;
+                    
                 } catch (err) {
                     console.error("Error accessing camera:", err);
-                    showError("Could not access the camera. Please make sure you've granted camera and microphone permissions.");
+                    alert("Could not access the camera. Please make sure you've granted camera and microphone permissions.");
+                    closeRecordingModal();
                 }
-            });
+            }
             
-            // Stop camera
-            stopBtn.addEventListener('click', function() {
-                if (stream) {
-                    // Stop recording if active
-                    if (mediaRecorder && mediaRecorder.state === 'recording') {
-                        mediaRecorder.stop();
-                        stopRecording();
-                    }
-                    
-                    stream.getTracks().forEach(track => track.stop());
-                    video.srcObject = null;
-                    
-                    startBtn.disabled = false;
-                    stopBtn.disabled = true;
-                    switchBtn.classList.add('hidden');
-                    captureBtn.classList.add('hidden');
-                    recordBtn.classList.add('hidden');
-                    recordingStatus.classList.add('hidden');
-                    resolutionDisplay.textContent = '';
-                }
-            });
-            
-            // Switch camera
-            switchBtn.addEventListener('click', async function() {
-                if (!cameras || cameras.length < 2) return;
-                
-                const currentIndex = cameras.findIndex(cam => cam.deviceId === currentDeviceId);
-                const nextIndex = (currentIndex + 1) % cameras.length;
-                const nextCamera = cameras[nextIndex];
-                
-                await switchCamera(nextCamera.deviceId);
-            });
-            
-            // Camera select change
-            cameraSelect.addEventListener('change', async function() {
-                await switchCamera(this.value);
-            });
-            
-            // Resolution select change
-            resolutionSelect.addEventListener('change', async function() {
-                const resolution = this.value.split('x');
-                await setResolution(parseInt(resolution[0]), parseInt(resolution[1]));
-            });
-            
-            // Capture photo
-            captureBtn.addEventListener('click', function() {
-                if (!stream) return;
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext('2d');
-                
-                // Draw mirrored image
-                ctx.translate(canvas.width, 0);
-                ctx.scale(-1, 1);
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                // Convert to data URL
-                const imageUrl = canvas.toDataURL('image/png');
-                
-                // Create download link
-                const a = document.createElement('a');
-                a.href = imageUrl;
-                a.download = `photo_${formatTimestamp()}.png`;
-                a.click();
-                
-                // Visual feedback
-                captureBtn.innerHTML = '<i class="fas fa-check text-green-600"></i>';
-                setTimeout(() => {
-                    captureBtn.innerHTML = '<i class="fas fa-camera text-gray-700"></i>';
-                }, 1000);
-            });
-            
-            // Record video
-            recordBtn.addEventListener('click', function() {
-                if (!mediaRecorder) return;
-                
-                if (mediaRecorder.state === 'inactive') {
-                    startRecording();
-                } else {
+            // Close recording modal
+            function closeRecordingModal() {
+                // Stop recording if active
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
                     mediaRecorder.stop();
                     stopRecording();
                 }
-            });
+                
+                // Stop camera
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    cameraFeed.srcObject = null;
+                }
+                
+                recordingModal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
             
             // Initialize media recorder
             function initMediaRecorder() {
@@ -321,13 +348,26 @@
                 };
             }
             
+            // Toggle recording
+            function toggleRecording() {
+                if (!mediaRecorder) return;
+                
+                if (mediaRecorder.state === 'inactive') {
+                    startRecording();
+                } else {
+                    mediaRecorder.stop();
+                    stopRecording();
+                }
+            }
+            
             // Start recording
             function startRecording() {
                 if (!mediaRecorder) return;
                 
                 mediaRecorder.start(100); // Collect data every 100ms
                 recordingStatus.classList.remove('hidden');
-                recordBtn.innerHTML = '<i class="fas fa-square text-red-600"></i>';
+                recordBtn.innerHTML = '<i class="fas fa-square text-xl"></i>';
+                recordingTimer.classList.remove('hidden');
                 
                 // Start timer
                 recordingSeconds = 0;
@@ -340,7 +380,8 @@
                 if (!mediaRecorder) return;
                 
                 recordingStatus.classList.add('hidden');
-                recordBtn.innerHTML = '<i class="fas fa-video text-gray-700"></i>';
+                recordBtn.innerHTML = '<i class="fas fa-circle text-xl"></i>';
+                recordingTimer.classList.add('hidden');
                 
                 // Stop timer
                 if (recordingInterval) {
@@ -349,100 +390,17 @@
                 }
             }
             
-            // Update recording time display
+            // Update recording time
             function updateRecordingTime() {
                 recordingSeconds++;
                 const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
                 const seconds = (recordingSeconds % 60).toString().padStart(2, '0');
                 recordingTime.textContent = `${minutes}:${seconds}`;
+                recordingTimer.textContent = `${minutes}:${seconds}`;
             }
             
-            // Get available cameras
-            async function getCameras() {
-                cameras = [];
-                cameraSelect.innerHTML = '';
-                
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                
-                if (videoDevices.length === 0) {
-                    console.log('No cameras found');
-                    return;
-                }
-                
-                cameras = videoDevices;
-                
-                videoDevices.forEach((device, i) => {
-                    const option = document.createElement('option');
-                    option.value = device.deviceId;
-                    option.text = device.label || `Camera ${i + 1}`;
-                    cameraSelect.appendChild(option);
-                    
-                    // Set current device
-                    const track = stream.getVideoTracks()[0];
-                    if (track.getSettings().deviceId === device.deviceId) {
-                        currentDeviceId = device.deviceId;
-                        cameraSelect.value = device.deviceId;
-                    }
-                });
-            }
-            
-            // Get available resolutions for current camera
-            async function getResolutions() {
-                resolutionSelect.innerHTML = '';
-                
-                if (!stream) return;
-                
-                const track = stream.getVideoTracks()[0];
-                const capabilities = track.getCapabilities();
-                
-                if (capabilities.width && capabilities.height) {
-                    // Common resolutions
-                    const resolutions = [
-                        { width: 320, height: 240 },
-                        { width: 640, height: 480 },
-                        { width: 800, height: 600 },
-                        { width: 1024, height: 768 },
-                        { width: 1280, height: 720 },
-                        { width: 1920, height: 1080 }
-                    ];
-                    
-                    // Filter resolutions that are supported
-                    const supportedResolutions = resolutions.filter(res => 
-                        res.width <= capabilities.width.max && 
-                        res.height <= capabilities.height.max
-                    );
-                    
-                    // Add current resolution if not in list
-                    const settings = track.getSettings();
-                    const currentRes = `${settings.width}x${settings.height}`;
-                    let hasCurrent = false;
-                    
-                    supportedResolutions.forEach(res => {
-                        const resStr = `${res.width}x${res.height}`;
-                        const option = document.createElement('option');
-                        option.value = resStr;
-                        option.text = resStr;
-                        resolutionSelect.appendChild(option);
-                        
-                        if (resStr === currentRes) {
-                            option.selected = true;
-                            hasCurrent = true;
-                        }
-                    });
-                    
-                    if (!hasCurrent) {
-                        const option = document.createElement('option');
-                        option.value = currentRes;
-                        option.text = currentRes;
-                        option.selected = true;
-                        resolutionSelect.insertBefore(option, resolutionSelect.firstChild);
-                    }
-                }
-            }
-            
-            // Switch to specific camera
-            async function switchCamera(deviceId) {
+            // Switch camera
+            async function switchCamera() {
                 if (!stream) return;
                 
                 // Stop current stream and recording if active
@@ -452,166 +410,151 @@
                 }
                 
                 stream.getTracks().forEach(track => track.stop());
+                isFrontCamera = !isFrontCamera;
                 
                 try {
                     const constraints = {
                         video: {
-                            deviceId: { exact: deviceId },
                             width: { ideal: 1280 },
-                            height: { ideal: 720 }
+                            height: { ideal: 720 },
+                            facingMode: isFrontCamera ? 'user' : 'environment'
                         },
                         audio: true
                     };
                     
                     stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    video.srcObject = stream;
-                    currentDeviceId = deviceId;
-                    
-                    // Update resolution display
-                    const track = stream.getVideoTracks()[0];
-                    const settings = track.getSettings();
-                    resolutionDisplay.textContent = `${settings.width}×${settings.height}`;
-                    
-                    // Update camera select
-                    cameraSelect.value = deviceId;
-                    
-                    // Get available resolutions for new camera
-                    await getResolutions();
+                    cameraFeed.srcObject = stream;
                     
                     // Reinitialize media recorder with new stream
                     initMediaRecorder();
                     
                 } catch (err) {
                     console.error("Error switching camera:", err);
-                    showError("Could not switch camera. Please try again.");
+                    alert("Could not switch camera. Please try again.");
                 }
             }
             
-            // Set specific resolution
-            async function setResolution(width, height) {
-                if (!stream) return;
+            // Play video in fullscreen
+            function playVideo(video) {
+                videoPlayerModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
                 
-                const track = stream.getVideoTracks()[0];
+                videoPlayer.src = video.url;
+                videoPlayer.play();
                 
-                try {
-                    await track.applyConstraints({
-                        width: { exact: width },
-                        height: { exact: height }
-                    });
-                    
-                    // Update resolution display
-                    const settings = track.getSettings();
-                    resolutionDisplay.textContent = `${settings.width}×${settings.height}`;
-                    
-                } catch (err) {
-                    console.error("Error setting resolution:", err);
-                    showError("This resolution is not supported by the current camera.");
+                // Update duration
+                setTimeout(() => {
+                    durationEl.textContent = formatDuration(videoPlayer.duration);
+                }, 100);
+                
+                // Show controls briefly
+                showVideoControls();
+                setTimeout(hideVideoControls, 2000);
+            }
+            
+            // Close video player
+            function closeVideoPlayer() {
+                videoPlayer.pause();
+                videoPlayerModal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+            
+            // Toggle play/pause
+            function togglePlayPause() {
+                if (videoPlayer.paused) {
+                    videoPlayer.play();
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                } else {
+                    videoPlayer.pause();
+                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
                 }
             }
             
-            // Render video history
-            function renderVideoHistory() {
-                if (videoHistoryData.length === 0) {
-                    emptyHistoryMessage.classList.remove('hidden');
-                    return;
-                }
-                
-                emptyHistoryMessage.classList.add('hidden');
-                videoHistory.innerHTML = '';
-                
-                videoHistoryData.forEach(video => {
-                    const videoItem = document.createElement('div');
-                    videoItem.className = 'bg-gray-700 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3 video-thumbnail';
-                    videoItem.innerHTML = `
-                        <div class="flex-shrink-0 relative">
-                            <video src="${video.url}" class="w-24 h-16 object-cover rounded"></video>
-                            <div class="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
-                                ${formatDuration(video.duration)}
-                            </div>
-                        </div>
-                        <div class="flex-grow">
-                            <div class="text-sm font-medium">Recording ${new Date(video.timestamp).toLocaleString()}</div>
-                            <div class="text-xs text-gray-400">${formatFileSize(getVideoSize(video.url))}</div>
-                        </div>
-                        <div class="flex gap-2 self-end sm:self-auto">
-                            <button class="download-btn bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-3 rounded" data-id="${video.id}">
-                                <i class="fas fa-download mr-1"></i> Download
-                            </button>
-                            <button class="delete-btn bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-3 rounded" data-id="${video.id}">
-                                <i class="fas fa-trash mr-1"></i> Delete
-                            </button>
-                        </div>
-                    `;
-                    
-                    videoHistory.appendChild(videoItem);
-                });
-                
-                // Add event listeners for download and delete buttons
-                document.querySelectorAll('.download-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const videoId = parseInt(this.getAttribute('data-id'));
-                        downloadVideo(videoId);
-                    });
-                });
-                
-                document.querySelectorAll('.delete-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const videoId = parseInt(this.getAttribute('data-id'));
-                        deleteVideo(videoId);
-                    });
-                });
+            // Update progress bar
+            function updateProgressBar() {
+                const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+                progressFilled.style.width = `${percent}%`;
+                currentTimeEl.textContent = formatDuration(videoPlayer.currentTime);
             }
             
-            // Download video
-            function downloadVideo(videoId) {
-                const video = videoHistoryData.find(v => v.id === videoId);
-                if (!video) return;
-                
-                const a = document.createElement('a');
-                a.href = video.url;
-                a.download = `recording_${new Date(video.timestamp).toISOString().slice(0, 19).replace(/[:T]/g, '-')}.mp4`;
-                a.click();
+            // Seek on progress bar click
+            function seek(e) {
+                const percent = e.offsetX / progressBar.offsetWidth;
+                videoPlayer.currentTime = percent * videoPlayer.duration;
             }
             
-            // Delete video
-            function deleteVideo(videoId) {
-                if (confirm('Are you sure you want to delete this recording?')) {
-                    videoHistoryData = videoHistoryData.filter(v => v.id !== videoId);
-                    localStorage.setItem('videoHistory', JSON.stringify(videoHistoryData));
-                    renderVideoHistory();
+            // Video ended
+            function videoEnded() {
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+            
+            // Show video controls
+            function showVideoControls() {
+                document.querySelector('.video-controls').style.opacity = '1';
+            }
+            
+            // Hide video controls
+            function hideVideoControls() {
+                if (!videoPlayer.paused) {
+                    document.querySelector('.video-controls').style.opacity = '0';
                 }
             }
             
-            // Estimate video size
-            function getVideoSize(videoUrl) {
-                // This is a rough estimation as we can't get exact size from blob URL
-                // In a real app, you would store the actual size when recording
-                const duration = videoHistoryData.find(v => v.url === videoUrl)?.duration || 10;
-                return duration * 100000; // Approximate bytes per second
+            // Toggle video controls
+            function toggleVideoControls() {
+                const controls = document.querySelector('.video-controls');
+                if (controls.style.opacity === '1') {
+                    hideVideoControls();
+                } else {
+                    showVideoControls();
+                }
+            }
+            
+            // Touch events for swipe gestures
+            function handleTouchStart(e) {
+                touchStartX = e.changedTouches[0].screenX;
+            }
+            
+            function handleTouchMove(e) {
+                e.preventDefault(); // Prevent scrolling while swiping
+            }
+            
+            function handleTouchEnd(e) {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }
+            
+            // Handle swipe gestures
+            function handleSwipe() {
+                const threshold = 50; // Minimum swipe distance
+                const diff = touchStartX - touchEndX;
+                
+                // Left swipe (next)
+                if (diff > threshold) {
+                    // Seek forward 10 seconds
+                    videoPlayer.currentTime = Math.min(videoPlayer.currentTime + 10, videoPlayer.duration);
+                }
+                // Right swipe (previous)
+                else if (diff < -threshold) {
+                    // Seek backward 10 seconds
+                    videoPlayer.currentTime = Math.max(videoPlayer.currentTime - 10, 0);
+                }
+                
+                // Show controls after swipe
+                showVideoControls();
             }
             
             // Helper functions
-            function formatTimestamp() {
-                return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-            }
-            
             function formatDuration(seconds) {
                 if (!seconds) return '00:00';
                 const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-                const secs = (seconds % 60).toString().padStart(2, '0');
+                const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
                 return `${mins}:${secs}`;
             }
             
-            function formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-            
-            function showError(message) {
-                alert(message); // In a real app, you'd use a nicer notification system
+            function formatDate(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             }
         });
     </script>
