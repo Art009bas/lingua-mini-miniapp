@@ -6,6 +6,7 @@
     <title>Протокол планёрок</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -120,6 +121,50 @@
             width: 100%;
             outline: none;
         }
+        
+        .telegram-btn {
+            background: #0088cc;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .telegram-btn:hover {
+            background: #0077b3;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+            z-index: 100;
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .dropdown-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .dropdown-item:hover {
+            background: #f3f4f6;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -131,6 +176,37 @@
                     <i class="fas fa-calendar-check text-blue-500 mr-3"></i>
                     Протокол планёрок
                 </h1>
+                
+                <!-- Кнопка авторизации Telegram -->
+                <div class="relative">
+                    <div id="auth-container">
+                        <button id="telegram-login-btn" class="telegram-btn px-4 py-2 rounded-lg flex items-center">
+                            <i class="fab fa-telegram mr-2"></i>
+                            Войти через Telegram
+                        </button>
+                        <div id="user-profile" class="hidden flex items-center cursor-pointer">
+                            <img id="user-avatar" src="" alt="User Avatar" class="user-avatar mr-2">
+                            <span id="user-name" class="font-medium"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Выпадающее меню пользователя -->
+                    <div id="user-dropdown" class="dropdown-menu">
+                        <div class="p-4 border-b border-gray-200 flex items-center">
+                            <img id="dropdown-avatar" src="" alt="User Avatar" class="user-avatar mr-3">
+                            <div>
+                                <div id="dropdown-name" class="font-medium"></div>
+                                <div id="dropdown-username" class="text-sm text-gray-500"></div>
+                            </div>
+                        </div>
+                        <div class="dropdown-item" id="sync-data-btn">
+                            <i class="fas fa-sync-alt mr-2"></i> Синхронизировать данные
+                        </div>
+                        <div class="dropdown-item text-red-500" id="logout-btn">
+                            <i class="fas fa-sign-out-alt mr-2"></i> Выйти
+                        </div>
+                    </div>
+                </div>
             </div>
             <p class="text-gray-500 mt-2">Система учета задач и результатов рабочих встреч</p>
         </header>
@@ -382,7 +458,9 @@
             meetings: [],
             currentMeeting: null,
             activeTab: 'current',
-            editingMeetingId: null
+            editingMeetingId: null,
+            user: null,
+            isSyncing: false
         };
         
         // Элементы DOM
@@ -431,11 +509,30 @@
             closeEditMeetingBtn: document.getElementById('close-edit-meeting-btn'),
             cancelEditMeetingBtn: document.getElementById('cancel-edit-meeting-btn'),
             saveEditMeetingBtn: document.getElementById('save-edit-meeting-btn'),
-            deleteMeetingBtn: document.getElementById('delete-meeting-btn')
+            deleteMeetingBtn: document.getElementById('delete-meeting-btn'),
+            telegramLoginBtn: document.getElementById('telegram-login-btn'),
+            userProfile: document.getElementById('user-profile'),
+            userAvatar: document.getElementById('user-avatar'),
+            userName: document.getElementById('user-name'),
+            userDropdown: document.getElementById('user-dropdown'),
+            dropdownAvatar: document.getElementById('dropdown-avatar'),
+            dropdownName: document.getElementById('dropdown-name'),
+            dropdownUsername: document.getElementById('dropdown-username'),
+            syncDataBtn: document.getElementById('sync-data-btn'),
+            logoutBtn: document.getElementById('logout-btn'),
+            authContainer: document.getElementById('auth-container')
         };
         
         // Инициализация приложения
         function init() {
+            // Проверяем, есть ли Telegram WebApp
+            if (window.Telegram && Telegram.WebApp) {
+                initTelegramAuth();
+            } else {
+                // Если нет Telegram WebApp, показываем обычную кнопку входа
+                setupManualTelegramAuth();
+            }
+            
             // Загружаем данные из localStorage
             loadData();
             
@@ -450,23 +547,197 @@
             setupEventListeners();
         }
         
-        // Загрузка данных из localStorage
-        function loadData() {
-            const savedData = localStorage.getItem('meetingPlanner');
-            if (savedData) {
-                const data = JSON.parse(savedData);
+        // Инициализация авторизации через Telegram WebApp
+        function initTelegramAuth() {
+            const tg = Telegram.WebApp;
+            
+            // Если пользователь уже авторизован
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                const user = tg.initDataUnsafe.user;
+                state.user = {
+                    id: user.id,
+                    firstName: user.first_name,
+                    lastName: user.last_name || '',
+                    username: user.username || '',
+                    photoUrl: user.photo_url || ''
+                };
+                
+                updateUserUI();
+                loadUserData();
+            } else {
+                // Показываем кнопку авторизации
+                elements.telegramLoginBtn.classList.remove('hidden');
+                elements.telegramLoginBtn.addEventListener('click', () => {
+                    tg.expand();
+                    tg.showAlert('Для авторизации откройте это приложение через Telegram');
+                });
+            }
+        }
+        
+        // Настройка ручной авторизации (если не в Telegram WebApp)
+        function setupManualTelegramAuth() {
+            // Проверяем, есть ли сохраненный пользователь
+            const savedUser = localStorage.getItem('tg_user');
+            if (savedUser) {
+                state.user = JSON.parse(savedUser);
+                updateUserUI();
+                loadUserData();
+            } else {
+                elements.telegramLoginBtn.classList.remove('hidden');
+                elements.telegramLoginBtn.addEventListener('click', () => {
+                    // Эмуляция авторизации для демонстрации
+                    state.user = {
+                        id: Math.floor(Math.random() * 1000000),
+                        firstName: 'Демо',
+                        lastName: 'Пользователь',
+                        username: 'demo_user',
+                        photoUrl: 'https://via.placeholder.com/150'
+                    };
+                    
+                    localStorage.setItem('tg_user', JSON.stringify(state.user));
+                    updateUserUI();
+                    loadUserData();
+                });
+            }
+        }
+        
+        // Обновление UI после авторизации
+        function updateUserUI() {
+            elements.telegramLoginBtn.classList.add('hidden');
+            elements.userProfile.classList.remove('hidden');
+            
+            // Устанавливаем аватар и имя пользователя
+            elements.userAvatar.src = state.user.photoUrl || 'https://via.placeholder.com/150';
+            elements.userName.textContent = `${state.user.firstName} ${state.user.lastName}`.trim();
+            
+            // Заполняем выпадающее меню
+            elements.dropdownAvatar.src = state.user.photoUrl || 'https://via.placeholder.com/150';
+            elements.dropdownName.textContent = `${state.user.firstName} ${state.user.lastName}`.trim();
+            elements.dropdownUsername.textContent = state.user.username ? `@${state.user.username}` : '';
+        }
+        
+        // Загрузка данных пользователя
+        function loadUserData() {
+            // В реальном приложении здесь бы был запрос к серверу
+            // Для демонстрации используем localStorage с привязкой к ID пользователя
+            const userData = localStorage.getItem(`meetingPlanner_${state.user.id}`);
+            
+            if (userData) {
+                const data = JSON.parse(userData);
                 state.meetings = data.meetings || [];
                 state.currentMeeting = data.currentMeeting || null;
+                
+                if (!state.currentMeeting) {
+                    createNewMeeting();
+                } else {
+                    renderCurrentMeeting();
+                }
+            } else {
+                // Если у пользователя нет сохраненных данных, создаем новую планёрку
+                createNewMeeting();
+            }
+        }
+        
+        // Сохранение данных пользователя
+        function saveUserData() {
+            if (!state.user) return;
+            
+            const data = {
+                meetings: state.meetings,
+                currentMeeting: state.currentMeeting
+            };
+            
+            localStorage.setItem(`meetingPlanner_${state.user.id}`, JSON.stringify(data));
+        }
+        
+        // Синхронизация данных с сервером (эмуляция)
+        function syncData() {
+            if (!state.user || state.isSyncing) return;
+            
+            state.isSyncing = true;
+            elements.syncDataBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Синхронизация...';
+            
+            // Эмуляция запроса к серверу
+            setTimeout(() => {
+                // В реальном приложении здесь бы был fetch/axios запрос
+                console.log('Данные синхронизированы с сервером');
+                
+                state.isSyncing = false;
+                elements.syncDataBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Синхронизировать данные';
+                
+                // Показываем уведомление
+                showNotification('Данные успешно синхронизированы', 'success');
+            }, 1500);
+        }
+        
+        // Выход пользователя
+        function logout() {
+            if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.close();
+            } else {
+                state.user = null;
+                localStorage.removeItem('tg_user');
+                
+                // Скрываем профиль и показываем кнопку входа
+                elements.userProfile.classList.add('hidden');
+                elements.telegramLoginBtn.classList.remove('hidden');
+                elements.userDropdown.classList.remove('show');
+                
+                // Очищаем данные (или сохраняем локально для неавторизованных пользователей)
+                saveData();
+            }
+        }
+        
+        // Показать уведомление
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${
+                        type === 'success' ? 'fa-check-circle' : 
+                        type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'
+                    } mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        // Загрузка данных из localStorage
+        function loadData() {
+            // Для неавторизованных пользователей используем общее хранилище
+            if (!state.user) {
+                const savedData = localStorage.getItem('meetingPlanner');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    state.meetings = data.meetings || [];
+                    state.currentMeeting = data.currentMeeting || null;
+                }
             }
         }
         
         // Сохранение данных в localStorage
         function saveData() {
-            const data = {
-                meetings: state.meetings,
-                currentMeeting: state.currentMeeting
-            };
-            localStorage.setItem('meetingPlanner', JSON.stringify(data));
+            if (state.user) {
+                saveUserData();
+            } else {
+                // Для неавторизованных пользователей сохраняем в общее хранилище
+                const data = {
+                    meetings: state.meetings,
+                    currentMeeting: state.currentMeeting
+                };
+                localStorage.setItem('meetingPlanner', JSON.stringify(data));
+            }
         }
         
         // Создание новой планёрки
@@ -1091,6 +1362,22 @@
                 });
                 
                 editMeeting(); // Перерендериваем
+            });
+            
+            // Управление профилем пользователя
+            elements.userProfile.addEventListener('click', (e) => {
+                e.stopPropagation();
+                elements.userDropdown.classList.toggle('show');
+            });
+            
+            elements.syncDataBtn.addEventListener('click', syncData);
+            elements.logoutBtn.addEventListener('click', logout);
+            
+            // Закрытие выпадающего меню при клике вне его
+            document.addEventListener('click', (e) => {
+                if (!elements.authContainer.contains(e.target)) {
+                    elements.userDropdown.classList.remove('show');
+                }
             });
         }
         
