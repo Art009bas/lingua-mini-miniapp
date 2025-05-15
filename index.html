@@ -3,120 +3,1113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Протокол Планёрок</title>
-    <script src="https://cdn.tailwindcss.com "></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css ">
-    <script src="https://telegram.org/js/telegram-web-app.js "></script>
+    <title>Протокол планёрок</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Стили можно оставить как в оригинале или использовать CDN */
-        body {
-            font-family: sans-serif;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .hidden {
-            display: none;
+        
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        
+        .task-completed {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+        
+        .checkbox-custom {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .checkbox-custom:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+            position: relative;
+        }
+        
+        .checkbox-custom:checked::after {
+            content: "✓";
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            transition: width 0.5s ease;
+        }
+        
+        .meeting-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .floating-btn {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+        }
+        
+        .floating-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+        
+        .chart-bar {
+            position: absolute;
+            bottom: 0;
+            width: 30px;
+            background: linear-gradient(to top, #3b82f6, #8b5cf6);
+            border-radius: 3px 3px 0 0;
+            transition: height 0.5s ease;
+        }
+        
+        .editable-title {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .editable-title:hover {
+            background-color: #f3f4f6;
+            border-radius: 4px;
+        }
+        
+        .editable-title-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #3b82f6;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            padding: 0.25rem 0.5rem;
+            width: 100%;
+            outline: none;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
-    <div id="app" class="max-w-3xl mx-auto">
-        <!-- Контент будет здесь -->
-        <h1 class="text-xl font-bold text-center mb-4">Протокол Планёрок</h1>
-        <div id="tasks-container" class="space-y-3"></div>
-        <input type="text" id="new-task-input" placeholder="Новая задача..." class="w-full p-2 border rounded mb-2">
-        <button onclick="addTask()" class="w-full bg-blue-500 text-white p-2 rounded">Добавить</button>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Шапка приложения -->
+        <header class="mb-10">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-800">
+                    <i class="fas fa-calendar-check text-blue-500 mr-3"></i>
+                    Протокол планёрок
+                </h1>
+            </div>
+            <p class="text-gray-500 mt-2">Система учета задач и результатов рабочих встреч</p>
+        </header>
+        
+        <main>
+            <!-- Основные вкладки -->
+            <div class="flex border-b border-gray-200 mb-8">
+                <button id="current-tab" class="tab-btn px-4 py-2 font-medium text-blue-500 border-b-2 border-blue-500">Текущая планёрка</button>
+                <button id="history-tab" class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700">Лента планёрок</button>
+                <button id="stats-tab" class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700">Статистика</button>
+            </div>
+            
+            <!-- Контейнер для контента -->
+            <div id="content-container">
+                <!-- Текущая планёрка -->
+                <div id="current-meeting-container" class="fade-in">
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+                        <div class="p-6 border-b border-gray-200">
+                            <div id="meeting-title-container" class="flex items-center">
+                                <i class="fas fa-calendar-day text-blue-500 mr-3"></i>
+                                <div id="meeting-title" class="editable-title text-xl font-semibold text-gray-800">
+                                    Планёрка от <span id="current-meeting-date"></span>
+                                </div>
+                                <input type="text" id="meeting-title-input" class="editable-title-input hidden" value="">
+                            </div>
+                            <div class="mt-4 flex items-center text-sm text-gray-500">
+                                <div class="mr-4">
+                                    <i class="fas fa-tasks mr-1"></i>
+                                    <span id="total-tasks">0</span> задач
+                                </div>
+                                <div>
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    <span id="completed-tasks">0</span> выполнено
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Прогресс выполнения -->
+                        <div class="px-6 py-3">
+                            <div class="progress-bar">
+                                <div id="meeting-progress" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Список задач -->
+                        <div class="p-6">
+                            <div id="tasks-container" class="space-y-3">
+                                <!-- Задачи будут здесь -->
+                                <div class="text-center py-10 text-gray-400" id="no-tasks-message">
+                                    <i class="fas fa-clipboard-list text-4xl mb-3"></i>
+                                    <p>Нет добавленных задач</p>
+                                    <button id="add-first-task" class="mt-4 px-4 py-2 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100">
+                                        Добавить первую задачу
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Форма добавления задачи -->
+                            <div class="mt-6 flex">
+                                <input type="text" id="new-task-input" placeholder="Добавить новую задачу..." class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <button id="add-task-btn" class="px-4 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Блок заметок -->
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                                <i class="fas fa-sticky-note text-yellow-500 mr-3"></i>
+                                Заметки
+                            </h2>
+                        </div>
+                        <div class="p-6">
+                            <textarea id="meeting-notes" placeholder="Добавьте заметки по планёрке..." class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[150px]"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Кнопка завершения планёрки -->
+                    <div class="flex justify-end mb-8">
+                        <button id="complete-meeting-btn" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center">
+                            <i class="fas fa-check-circle mr-2"></i> Завершить планёрку
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Лента планёрок (скрыта по умолчанию) -->
+                <div id="history-container" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Карточки планёрок будут здесь -->
+                        <div class="text-center py-10 text-gray-400" id="no-history-message">
+                            <i class="fas fa-history text-4xl mb-3"></i>
+                            <p>Лента планёрок пуста</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Статистика (скрыта по умолчанию) -->
+                <div id="stats-container" class="hidden">
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden p-6">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-6">
+                            <i class="fas fa-chart-line text-purple-500 mr-3"></i>
+                            Статистика выполнения задач
+                        </h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-blue-50 p-6 rounded-lg">
+                                <div class="text-4xl font-bold text-blue-600 mb-2" id="total-meetings">0</div>
+                                <div class="text-gray-600">Всего планёрок</div>
+                            </div>
+                            <div class="bg-green-50 p-6 rounded-lg">
+                                <div class="text-4xl font-bold text-green-600 mb-2" id="completed-percentage">0%</div>
+                                <div class="text-gray-600">Средний % выполнения</div>
+                            </div>
+                            <div class="bg-purple-50 p-6 rounded-lg">
+                                <div class="text-4xl font-bold text-purple-600 mb-2" id="total-tasks-stats">0</div>
+                                <div class="text-gray-600">Всего задач</div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Прогресс выполнения по дням</h3>
+                            <div class="chart-container" id="completion-chart">
+                                <!-- График будет здесь -->
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-6 rounded-lg mt-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Распределение задач</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-700 mb-3">По статусу</h4>
+                                    <div class="flex items-center mb-2">
+                                        <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                                        <span class="text-sm">Выполненные: <span id="completed-count">0</span></span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <div class="w-4 h-4 bg-gray-300 rounded-full mr-2"></div>
+                                        <span class="text-sm">Невыполненные: <span id="pending-count">0</span></span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-700 mb-3">По планёркам</h4>
+                                    <div id="meetings-stats">
+                                        <!-- Статистика по планёркам будет здесь -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="mt-16 text-center text-gray-500 text-sm pb-8">
+            <p>© 2025 Протокол планёрок. Все права защищены.</p>
+        </footer>
+    </div>
+
+    <!-- Модальное окно для просмотра планёрки -->
+    <div id="view-meeting-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl transform transition-all fade-in max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-xl font-semibold text-gray-800" id="view-meeting-title"></h3>
+                <button id="close-view-meeting-btn" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">Задачи</h4>
+                    <div id="view-meeting-tasks" class="space-y-2">
+                        <!-- Задачи будут здесь -->
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">Заметки</h4>
+                    <div id="view-meeting-notes" class="bg-gray-50 p-4 rounded-lg">
+                        <!-- Заметки будут здесь -->
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-gray-500">
+                        <span id="view-meeting-date"></span>
+                    </div>
+                    <button id="edit-meeting-btn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                        <i class="fas fa-edit mr-2"></i> Редактировать
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования планёрки -->
+    <div id="edit-meeting-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl transform transition-all fade-in max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-xl font-semibold text-gray-800">Редактирование планёрки</h3>
+                <button id="close-edit-meeting-btn" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Название планёрки</label>
+                    <input type="text" id="edit-meeting-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Дата планёрки</label>
+                    <input type="date" id="edit-meeting-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">Задачи</h4>
+                    <div id="edit-meeting-tasks-container" class="space-y-3 mb-4">
+                        <!-- Задачи для редактирования будут здесь -->
+                    </div>
+                    <button id="add-task-in-edit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                        <i class="fas fa-plus mr-2"></i> Добавить задачу
+                    </button>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">Заметки</h4>
+                    <textarea id="edit-meeting-notes" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[150px]"></textarea>
+                </div>
+                
+                <div class="flex justify-between">
+                    <button id="delete-meeting-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                        <i class="fas fa-trash mr-2"></i> Удалить планёрку
+                    </button>
+                    <div>
+                        <button id="cancel-edit-meeting-btn" class="px-4 py-2 text-gray-600 mr-3 hover:text-gray-800">Отмена</button>
+                        <button id="save-edit-meeting-btn" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
+        // Состояние приложения
         const state = {
-            tasks: [],
-            user: null,
-            isAuthenticated: false
+            meetings: [],
+            currentMeeting: null,
+            activeTab: 'current',
+            editingMeetingId: null
         };
-
-        // Подключение Telegram WebApp
-        const tg = window.Telegram.WebApp;
-
-        // Расширяем окно на весь экран
-        tg.ready();
-        tg.expand();
-
-        // Авторизация через Telegram
-        function handleTelegramAuth(userData) {
-            state.user = {
-                id: userData.id,
-                first_name: userData.first_name,
-                last_name: userData.last_name || '',
-                username: userData.username || '',
-                photo_url: userData.photo_url || 'https://via.placeholder.com/64 '
-            };
-            state.isAuthenticated = true;
-            loadTasks();
-        }
-
-        function saveTasks() {
-            localStorage.setItem(`tasks_${state.user.id}`, JSON.stringify(state.tasks));
-        }
-
-        function loadTasks() {
-            const saved = localStorage.getItem(`tasks_${state.user.id}`);
-            if (saved) {
-                state.tasks = JSON.parse(saved);
+        
+        // Элементы DOM
+        const elements = {
+            currentTab: document.getElementById('current-tab'),
+            historyTab: document.getElementById('history-tab'),
+            statsTab: document.getElementById('stats-tab'),
+            currentMeetingContainer: document.getElementById('current-meeting-container'),
+            historyContainer: document.getElementById('history-container'),
+            statsContainer: document.getElementById('stats-container'),
+            meetingTitle: document.getElementById('meeting-title'),
+            meetingTitleInput: document.getElementById('meeting-title-input'),
+            meetingTitleContainer: document.getElementById('meeting-title-container'),
+            currentMeetingDate: document.getElementById('current-meeting-date'),
+            tasksContainer: document.getElementById('tasks-container'),
+            newTaskInput: document.getElementById('new-task-input'),
+            addTaskBtn: document.getElementById('add-task-btn'),
+            addFirstTask: document.getElementById('add-first-task'),
+            noTasksMessage: document.getElementById('no-tasks-message'),
+            meetingNotes: document.getElementById('meeting-notes'),
+            totalTasks: document.getElementById('total-tasks'),
+            completedTasks: document.getElementById('completed-tasks'),
+            meetingProgress: document.getElementById('meeting-progress'),
+            noHistoryMessage: document.getElementById('no-history-message'),
+            totalMeetings: document.getElementById('total-meetings'),
+            completedPercentage: document.getElementById('completed-percentage'),
+            totalTasksStats: document.getElementById('total-tasks-stats'),
+            completeMeetingBtn: document.getElementById('complete-meeting-btn'),
+            completionChart: document.getElementById('completion-chart'),
+            completedCount: document.getElementById('completed-count'),
+            pendingCount: document.getElementById('pending-count'),
+            meetingsStats: document.getElementById('meetings-stats'),
+            viewMeetingModal: document.getElementById('view-meeting-modal'),
+            viewMeetingTitle: document.getElementById('view-meeting-title'),
+            viewMeetingTasks: document.getElementById('view-meeting-tasks'),
+            viewMeetingNotes: document.getElementById('view-meeting-notes'),
+            viewMeetingDate: document.getElementById('view-meeting-date'),
+            closeViewMeetingBtn: document.getElementById('close-view-meeting-btn'),
+            editMeetingBtn: document.getElementById('edit-meeting-btn'),
+            editMeetingModal: document.getElementById('edit-meeting-modal'),
+            editMeetingTitle: document.getElementById('edit-meeting-title'),
+            editMeetingDate: document.getElementById('edit-meeting-date'),
+            editMeetingTasksContainer: document.getElementById('edit-meeting-tasks-container'),
+            editMeetingNotes: document.getElementById('edit-meeting-notes'),
+            addTaskInEdit: document.getElementById('add-task-in-edit'),
+            closeEditMeetingBtn: document.getElementById('close-edit-meeting-btn'),
+            cancelEditMeetingBtn: document.getElementById('cancel-edit-meeting-btn'),
+            saveEditMeetingBtn: document.getElementById('save-edit-meeting-btn'),
+            deleteMeetingBtn: document.getElementById('delete-meeting-btn')
+        };
+        
+        // Инициализация приложения
+        function init() {
+            // Загружаем данные из localStorage
+            loadData();
+            
+            // Если нет текущей планёрки, создаем новую
+            if (!state.currentMeeting) {
+                createNewMeeting();
             } else {
-                state.tasks = [];
+                renderCurrentMeeting();
             }
-            renderTasks();
+            
+            // Обработчики событий
+            setupEventListeners();
         }
-
-        function addTask() {
-            const input = document.getElementById('new-task-input');
-            const text = input.value.trim();
-            if (!text) return;
-            const task = {
+        
+        // Загрузка данных из localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('meetingPlanner');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                state.meetings = data.meetings || [];
+                state.currentMeeting = data.currentMeeting || null;
+            }
+        }
+        
+        // Сохранение данных в localStorage
+        function saveData() {
+            const data = {
+                meetings: state.meetings,
+                currentMeeting: state.currentMeeting
+            };
+            localStorage.setItem('meetingPlanner', JSON.stringify(data));
+        }
+        
+        // Создание новой планёрки
+        function createNewMeeting(topic = '') {
+            const now = new Date();
+            const dateString = now.toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+            
+            const meeting = {
                 id: Date.now(),
-                text,
+                date: now.toISOString(),
+                dateString: dateString,
+                title: topic || `Планёрка от ${dateString}`,
+                tasks: [],
+                notes: '',
                 completed: false
             };
-            state.tasks.push(task);
-            input.value = '';
-            renderTasks();
-            saveTasks();
+            
+            state.currentMeeting = meeting;
+            renderCurrentMeeting();
+            saveData();
         }
-
-        function toggleComplete(id) {
-            const task = state.tasks.find(t => t.id === id);
-            if (task) {
-                task.completed = !task.completed;
-                renderTasks();
-                saveTasks();
+        
+        // Рендер текущей планёрки
+        function renderCurrentMeeting() {
+            if (!state.currentMeeting) return;
+            
+            elements.currentMeetingDate.textContent = state.currentMeeting.dateString;
+            
+            // Устанавливаем заголовок планёрки
+            if (state.currentMeeting.title) {
+                elements.meetingTitle.innerHTML = state.currentMeeting.title;
+            } else {
+                elements.meetingTitle.innerHTML = `Планёрка от <span id="current-meeting-date">${state.currentMeeting.dateString}</span>`;
+            }
+            
+            elements.meetingNotes.value = state.currentMeeting.notes || '';
+            
+            renderTasks();
+            updateProgress();
+        }
+        
+        // Рендер списка задач
+        function renderTasks() {
+            if (!state.currentMeeting) return;
+            
+            const tasks = state.currentMeeting.tasks;
+            
+            if (tasks.length === 0) {
+                elements.noTasksMessage.classList.remove('hidden');
+                elements.tasksContainer.innerHTML = '';
+            } else {
+                elements.noTasksMessage.classList.add('hidden');
+                
+                let tasksHTML = '';
+                tasks.forEach((task, index) => {
+                    tasksHTML += `
+                        <div class="task-item slide-in flex items-center p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50" data-index="${index}">
+                            <input type="checkbox" ${task.completed ? 'checked' : ''} class="checkbox-custom mr-3">
+                            <div class="flex-1 ${task.completed ? 'task-completed' : ''}">${task.text}</div>
+                            <button class="delete-task-btn text-gray-400 hover:text-red-500 ml-2">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                elements.tasksContainer.innerHTML = tasksHTML;
+                
+                // Добавляем обработчики событий для чекбоксов и кнопок удаления
+                document.querySelectorAll('.task-item input[type="checkbox"]').forEach((checkbox, index) => {
+                    checkbox.addEventListener('change', () => toggleTaskComplete(index));
+                });
+                
+                document.querySelectorAll('.delete-task-btn').forEach((btn, index) => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteTask(index);
+                    });
+                });
             }
         }
-
-        function renderTasks() {
-            const container = document.getElementById('tasks-container');
-            container.innerHTML = '';
-            state.tasks.forEach(task => {
-                const div = document.createElement('div');
-                div.className = "flex items-center justify-between p-2 bg-white border rounded shadow-sm";
-                div.innerHTML = `
-                    <div class="flex items-center space-x-2">
-                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleComplete(${task.id})" class="w-4 h-4">
-                        <span class="${task.completed ? 'line-through text-gray-400' : ''}">${task.text}</span>
+        
+        // Обновление прогресса выполнения
+        function updateProgress() {
+            if (!state.currentMeeting) return;
+            
+            const tasks = state.currentMeeting.tasks;
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            
+            elements.totalTasks.textContent = total;
+            elements.completedTasks.textContent = completed;
+            
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+            elements.meetingProgress.style.width = `${percentage}%`;
+            
+            // Обновляем статистику, если активна вкладка статистики
+            if (state.activeTab === 'stats') {
+                renderStats();
+            }
+        }
+        
+        // Добавление новой задачи
+        function addTask() {
+            const taskText = elements.newTaskInput.value.trim();
+            if (!taskText || !state.currentMeeting) return;
+            
+            const task = {
+                text: taskText,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+            
+            state.currentMeeting.tasks.push(task);
+            elements.newTaskInput.value = '';
+            
+            renderTasks();
+            updateProgress();
+            saveData();
+        }
+        
+        // Переключение статуса задачи
+        function toggleTaskComplete(index) {
+            if (!state.currentMeeting) return;
+            
+            state.currentMeeting.tasks[index].completed = !state.currentMeeting.tasks[index].completed;
+            updateProgress();
+            renderTasks(); // Перерендериваем, чтобы применить стиль task-completed
+            saveData();
+        }
+        
+        // Удаление задачи
+        function deleteTask(index) {
+            if (!state.currentMeeting) return;
+            
+            state.currentMeeting.tasks.splice(index, 1);
+            renderTasks();
+            updateProgress();
+            saveData();
+        }
+        
+        // Сохранение заметок
+        function saveNotes() {
+            if (!state.currentMeeting) return;
+            
+            state.currentMeeting.notes = elements.meetingNotes.value;
+            saveData();
+        }
+        
+        // Завершение текущей планёрки
+        function completeCurrentMeeting() {
+            if (!state.currentMeeting) return;
+            
+            state.currentMeeting.completed = true;
+            state.meetings.push(state.currentMeeting);
+            state.currentMeeting = null;
+            
+            saveData();
+            createNewMeeting();
+            switchTab('current');
+        }
+        
+        // Рендер ленты планёрок
+        function renderHistory() {
+            const completedMeetings = state.meetings.filter(m => m.completed);
+            
+            if (completedMeetings.length === 0) {
+                elements.noHistoryMessage.classList.remove('hidden');
+                elements.historyContainer.querySelector('.grid').innerHTML = '';
+            } else {
+                elements.noHistoryMessage.classList.add('hidden');
+                
+                let historyHTML = '';
+                completedMeetings.forEach(meeting => {
+                    const tasks = meeting.tasks;
+                    const total = tasks.length;
+                    const completed = tasks.filter(t => t.completed).length;
+                    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    
+                    historyHTML += `
+                        <div class="meeting-card bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 cursor-pointer" data-id="${meeting.id}">
+                            <div class="p-6 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-800">${meeting.title} <span class="text-sm font-normal text-gray-500">(${meeting.dateString})</span></h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-sm text-gray-600">${completed}/${total} задач выполнено</span>
+                                    <span class="text-sm font-medium ${percentage === 100 ? 'text-green-500' : percentage > 50 ? 'text-blue-500' : 'text-yellow-500'}">${percentage}%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                                </div>
+                                <div class="mt-4 text-sm text-gray-500">
+                                    ${meeting.notes ? `<p class="truncate"><i class="fas fa-sticky-note mr-2"></i>${meeting.notes}</p>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                elements.historyContainer.querySelector('.grid').innerHTML = historyHTML;
+                
+                // Добавляем обработчики клика на карточки планёрок
+                document.querySelectorAll('.meeting-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const meetingId = parseInt(card.getAttribute('data-id'));
+                        showMeetingDetails(meetingId);
+                    });
+                });
+            }
+        }
+        
+        // Показать детали планёрки
+        function showMeetingDetails(meetingId) {
+            const meeting = state.meetings.find(m => m.id === meetingId);
+            if (!meeting) return;
+            
+            elements.viewMeetingTitle.textContent = meeting.title;
+            elements.viewMeetingDate.textContent = meeting.dateString;
+            
+            // Рендерим задачи
+            let tasksHTML = '';
+            meeting.tasks.forEach(task => {
+                tasksHTML += `
+                    <div class="flex items-center p-2 bg-gray-50 rounded">
+                        <div class="w-5 h-5 flex items-center justify-center mr-3">
+                            ${task.completed ? '<i class="fas fa-check text-green-500"></i>' : '<i class="fas fa-circle-notch text-gray-400"></i>'}
+                        </div>
+                        <div class="${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}">${task.text}</div>
                     </div>
                 `;
-                container.appendChild(div);
             });
+            elements.viewMeetingTasks.innerHTML = tasksHTML || '<p class="text-gray-500">Нет задач</p>';
+            
+            // Рендерим заметки
+            elements.viewMeetingNotes.textContent = meeting.notes || 'Нет заметок';
+            
+            // Сохраняем ID редактируемой планёрки
+            state.editingMeetingId = meetingId;
+            
+            // Показываем модальное окно
+            elements.viewMeetingModal.classList.remove('hidden');
         }
-
-        // Инициализация
-        function init() {
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                handleTelegramAuth(tg.initDataUnsafe.user);
-            } else {
-                alert("Вы должны запустить это приложение из Telegram");
+        
+        // Редактирование планёрки
+        function editMeeting() {
+            const meetingId = state.editingMeetingId;
+            if (!meetingId) return;
+            
+            const meeting = state.meetings.find(m => m.id === meetingId);
+            if (!meeting) return;
+            
+            // Заполняем форму редактирования
+            elements.editMeetingTitle.value = meeting.title;
+            
+            // Преобразуем дату в формат для input[type="date"]
+            const date = new Date(meeting.date);
+            const dateString = date.toISOString().split('T')[0];
+            elements.editMeetingDate.value = dateString;
+            
+            // Рендерим задачи для редактирования
+            let tasksHTML = '';
+            meeting.tasks.forEach((task, index) => {
+                tasksHTML += `
+                    <div class="flex items-center p-2 bg-gray-50 rounded mb-2" data-index="${index}">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} class="checkbox-custom mr-3">
+                        <input type="text" value="${task.text}" class="flex-1 px-3 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent">
+                        <button class="delete-task-in-edit text-gray-400 hover:text-red-500 ml-2">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            elements.editMeetingTasksContainer.innerHTML = tasksHTML;
+            
+            // Добавляем обработчики для удаления задач в режиме редактирования
+            document.querySelectorAll('.delete-task-in-edit').forEach((btn, index) => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    meeting.tasks.splice(index, 1);
+                    editMeeting(); // Перерендериваем
+                });
+            });
+            
+            // Добавляем обработчики для чекбоксов в режиме редактирования
+            document.querySelectorAll('#edit-meeting-tasks-container input[type="checkbox"]').forEach((checkbox, index) => {
+                checkbox.addEventListener('change', () => {
+                    meeting.tasks[index].completed = !meeting.tasks[index].completed;
+                });
+            });
+            
+            // Заполняем заметки
+            elements.editMeetingNotes.value = meeting.notes || '';
+            
+            // Переключаемся на модальное окно редактирования
+            elements.viewMeetingModal.classList.add('hidden');
+            elements.editMeetingModal.classList.remove('hidden');
+        }
+        
+        // Сохранение изменений планёрки
+        function saveEditedMeeting() {
+            const meetingId = state.editingMeetingId;
+            if (!meetingId) return;
+            
+            const meeting = state.meetings.find(m => m.id === meetingId);
+            if (!meeting) return;
+            
+            // Обновляем данные планёрки
+            meeting.title = elements.editMeetingTitle.value.trim();
+            
+            // Обновляем дату
+            const newDate = new Date(elements.editMeetingDate.value);
+            meeting.date = newDate.toISOString();
+            meeting.dateString = newDate.toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+            
+            // Обновляем заметки
+            meeting.notes = elements.editMeetingNotes.value;
+            
+            // Сохраняем изменения
+            saveData();
+            
+            // Закрываем модальное окно
+            elements.editMeetingModal.classList.add('hidden');
+            
+            // Перерендериваем историю
+            renderHistory();
+            
+            // Показываем модальное окно просмотра с обновленными данными
+            showMeetingDetails(meetingId);
+        }
+        
+        // Удаление планёрки
+        function deleteMeeting() {
+            const meetingId = state.editingMeetingId;
+            if (!meetingId) return;
+            
+            if (confirm('Вы уверены, что хотите удалить эту планёрку? Это действие нельзя отменить.')) {
+                state.meetings = state.meetings.filter(m => m.id !== meetingId);
+                saveData();
+                
+                // Закрываем модальные окна
+                elements.editMeetingModal.classList.add('hidden');
+                elements.viewMeetingModal.classList.add('hidden');
+                
+                // Перерендериваем историю
+                renderHistory();
+                
+                // Сбрасываем ID редактируемой планёрки
+                state.editingMeetingId = null;
             }
         }
-
-        init();
+        
+        // Рендер статистики
+        function renderStats() {
+            const completedMeetings = state.meetings.filter(m => m.completed);
+            const totalMeetings = completedMeetings.length;
+            
+            let totalTasks = 0;
+            let totalCompleted = 0;
+            
+            completedMeetings.forEach(meeting => {
+                totalTasks += meeting.tasks.length;
+                totalCompleted += meeting.tasks.filter(t => t.completed).length;
+            });
+            
+            // Добавляем текущую планёрку в статистику, если есть задачи
+            if (state.currentMeeting && state.currentMeeting.tasks.length > 0) {
+                totalTasks += state.currentMeeting.tasks.length;
+                totalCompleted += state.currentMeeting.tasks.filter(t => t.completed).length;
+            }
+            
+            const avgCompletion = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+            
+            elements.totalMeetings.textContent = totalMeetings;
+            elements.completedPercentage.textContent = `${avgCompletion}%`;
+            elements.totalTasksStats.textContent = totalTasks;
+            
+            // Обновляем счетчики выполненных и невыполненных задач
+            elements.completedCount.textContent = totalCompleted;
+            elements.pendingCount.textContent = totalTasks - totalCompleted;
+            
+            // Рендерим график выполнения
+            renderCompletionChart();
+            
+            // Рендерим статистику по планёркам
+            renderMeetingsStats();
+        }
+        
+        // Рендер графика выполнения
+        function renderCompletionChart() {
+            // Очищаем контейнер
+            elements.completionChart.innerHTML = '';
+            
+            // Берем последние 7 планёрок (или меньше)
+            const meetingsToShow = [...state.meetings]
+                .filter(m => m.completed)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 7)
+                .reverse();
+            
+            // Добавляем текущую планёрку, если есть задачи
+            if (state.currentMeeting && state.currentMeeting.tasks.length > 0) {
+                meetingsToShow.push(state.currentMeeting);
+            }
+            
+            if (meetingsToShow.length === 0) {
+                elements.completionChart.innerHTML = `
+                    <div class="flex items-center justify-center h-full text-gray-400">
+                        <i class="fas fa-chart-bar text-4xl mr-3"></i>
+                        <span>Нет данных для отображения</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Находим максимальное количество задач для масштабирования
+            const maxTasks = Math.max(...meetingsToShow.map(m => m.tasks.length), 10);
+            
+            // Создаем элементы графика
+            meetingsToShow.forEach((meeting, index) => {
+                const tasks = meeting.tasks;
+                const total = tasks.length;
+                const completed = tasks.filter(t => t.completed).length;
+                const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+                
+                const barHeight = total > 0 ? (total / maxTasks) * 100 : 5;
+                const completedHeight = total > 0 ? (completed / maxTasks) * 100 : 0;
+                
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                bar.style.height = `${barHeight}%`;
+                bar.style.left = `${index * 40 + 20}px`;
+                bar.style.width = '30px';
+                
+                // Внутренний элемент для выполненных задач
+                const completedBar = document.createElement('div');
+                completedBar.className = 'chart-bar';
+                completedBar.style.height = `${completedHeight}%`;
+                completedBar.style.bottom = '0';
+                completedBar.style.left = '0';
+                completedBar.style.width = '100%';
+                completedBar.style.background = 'linear-gradient(to top, #10b981, #34d399)';
+                
+                bar.appendChild(completedBar);
+                
+                // Подпись под столбцом
+                const label = document.createElement('div');
+                label.className = 'absolute top-full left-0 w-full text-center text-xs text-gray-500 mt-1';
+                label.textContent = meeting.dateString.split(' ')[0]; // Только день и месяц
+                
+                // Подпись над столбцом
+                const valueLabel = document.createElement('div');
+                valueLabel.className = 'absolute bottom-full left-0 w-full text-center text-xs font-medium mb-1';
+                valueLabel.textContent = `${percentage}%`;
+                
+                bar.appendChild(label);
+                bar.appendChild(valueLabel);
+                
+                elements.completionChart.appendChild(bar);
+            });
+        }
+        
+        // Рендер статистики по планёркам
+        function renderMeetingsStats() {
+            // Очищаем контейнер
+            elements.meetingsStats.innerHTML = '';
+            
+            // Берем последние 5 планёрок
+            const recentMeetings = [...state.meetings]
+                .filter(m => m.completed)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 5);
+            
+            if (recentMeetings.length === 0) {
+                elements.meetingsStats.innerHTML = '<p class="text-sm text-gray-500">Нет данных</p>';
+                return;
+            }
+            
+            recentMeetings.forEach(meeting => {
+                const tasks = meeting.tasks;
+                const total = tasks.length;
+                const completed = tasks.filter(t => t.completed).length;
+                const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+                
+                const meetingStat = document.createElement('div');
+                meetingStat.className = 'mb-2';
+                
+                meetingStat.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm truncate mr-2">${meeting.title}</span>
+                        <span class="text-sm font-medium ${percentage === 100 ? 'text-green-500' : percentage > 50 ? 'text-blue-500' : 'text-yellow-500'}">${percentage}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full ${percentage === 100 ? 'bg-green-500' : percentage > 50 ? 'bg-blue-500' : 'bg-yellow-500'}" style="width: ${percentage}%"></div>
+                    </div>
+                `;
+                
+                elements.meetingsStats.appendChild(meetingStat);
+            });
+        }
+        
+        // Переключение вкладок
+        function switchTab(tab) {
+            state.activeTab = tab;
+            
+            // Обновляем активную вкладку в UI
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-blue-500', 'border-b-2', 'border-blue-500');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+            
+            if (tab === 'current') {
+                elements.currentTab.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
+                elements.currentTab.classList.remove('text-gray-500', 'hover:text-gray-700');
+                elements.currentMeetingContainer.classList.remove('hidden');
+                elements.historyContainer.classList.add('hidden');
+                elements.statsContainer.classList.add('hidden');
+            } else if (tab === 'history') {
+                elements.historyTab.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
+                elements.historyTab.classList.remove('text-gray-500', 'hover:text-gray-700');
+                elements.currentMeetingContainer.classList.add('hidden');
+                elements.historyContainer.classList.remove('hidden');
+                elements.statsContainer.classList.add('hidden');
+                renderHistory();
+            } else if (tab === 'stats') {
+                elements.statsTab.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
+                elements.statsTab.classList.remove('text-gray-500', 'hover:text-gray-700');
+                elements.currentMeetingContainer.classList.add('hidden');
+                elements.historyContainer.classList.add('hidden');
+                elements.statsContainer.classList.remove('hidden');
+                renderStats();
+            }
+        }
+        
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Кнопки вкладок
+            elements.currentTab.addEventListener('click', () => switchTab('current'));
+            elements.historyTab.addEventListener('click', () => switchTab('history'));
+            elements.statsTab.addEventListener('click', () => switchTab('stats'));
+            
+            // Добавление задачи
+            elements.addTaskBtn.addEventListener('click', addTask);
+            elements.addFirstTask.addEventListener('click', () => {
+                elements.newTaskInput.focus();
+            });
+            elements.newTaskInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addTask();
+            });
+            
+            // Сохранение заметок
+            elements.meetingNotes.addEventListener('blur', saveNotes);
+            elements.meetingNotes.addEventListener('keyup', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') saveNotes();
+            });
+            
+            // Кнопка завершения планёрки
+            elements.completeMeetingBtn.addEventListener('click', completeCurrentMeeting);
+            
+            // Редактирование названия планёрки
+            elements.meetingTitle.addEventListener('click', () => {
+                elements.meetingTitle.classList.add('hidden');
+                elements.meetingTitleInput.value = state.currentMeeting.title || `Планёрка от ${state.currentMeeting.dateString}`;
+                elements.meetingTitleInput.classList.remove('hidden');
+                elements.meetingTitleInput.focus();
+            });
+            
+            elements.meetingTitleInput.addEventListener('blur', () => {
+                saveMeetingTitle();
+            });
+            
+            elements.meetingTitleInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    saveMeetingTitle();
+                }
+            });
+            
+            // Модальное окно просмотра планёрки
+            elements.closeViewMeetingBtn.addEventListener('click', () => {
+                elements.viewMeetingModal.classList.add('hidden');
+                state.editingMeetingId = null;
+            });
+            
+            elements.editMeetingBtn.addEventListener('click', editMeeting);
+            
+            // Модальное окно редактирования планёрки
+            elements.closeEditMeetingBtn.addEventListener('click', () => {
+                elements.editMeetingModal.classList.add('hidden');
+                if (state.editingMeetingId) {
+                    showMeetingDetails(state.editingMeetingId);
+                }
+            });
+            
+            elements.cancelEditMeetingBtn.addEventListener('click', () => {
+                elements.editMeetingModal.classList.add('hidden');
+                if (state.editingMeetingId) {
+                    showMeetingDetails(state.editingMeetingId);
+                }
+            });
+            
+            elements.saveEditMeetingBtn.addEventListener('click', saveEditedMeeting);
+            
+            elements.deleteMeetingBtn.addEventListener('click', deleteMeeting);
+            
+            // Добавление задачи в режиме редактирования
+            elements.addTaskInEdit.addEventListener('click', () => {
+                const meeting = state.meetings.find(m => m.id === state.editingMeetingId);
+                if (!meeting) return;
+                
+                meeting.tasks.push({
+                    text: 'Новая задача',
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                });
+                
+                editMeeting(); // Перерендериваем
+            });
+        }
+        
+        // Сохранение названия планёрки
+        function saveMeetingTitle() {
+            if (!state.currentMeeting) return;
+            
+            const newTitle = elements.meetingTitleInput.value.trim();
+            state.currentMeeting.title = newTitle;
+            
+            elements.meetingTitle.innerHTML = newTitle;
+            elements.meetingTitleInput.classList.add('hidden');
+            elements.meetingTitle.classList.remove('hidden');
+            
+            saveData();
+        }
+        
+        // Запуск приложения
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
