@@ -1,1402 +1,619 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Протокол планёрок</title>
+    <title>Camera & Video Recorder</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        #camera-feed {
+            transform: scaleX(-1); /* Mirror effect */
         }
-        
-        @keyframes slideIn {
-            from { transform: translateX(20px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.3s ease-out forwards;
-        }
-        
-        .slide-in {
-            animation: slideIn 0.3s ease-out forwards;
-        }
-        
-        .task-completed {
-            text-decoration: line-through;
-            color: #9ca3af;
-        }
-        
-        .checkbox-custom {
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #d1d5db;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .checkbox-custom:checked {
-            background-color: #3b82f6;
-            border-color: #3b82f6;
+        .camera-container {
             position: relative;
+            aspect-ratio: 16/9;
         }
-        
-        .checkbox-custom:checked::after {
-            content: "✓";
+        .camera-overlay {
             position: absolute;
-            color: white;
-            font-size: 12px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        .progress-bar {
-            height: 6px;
-            background-color: #e5e7eb;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
+            top: 0;
+            left: 0;
+            width: 100%;
             height: 100%;
-            background: linear-gradient(to right, #3b82f6, #8b5cf6);
-            transition: width 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
         }
-        
-        .meeting-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        .recording-indicator {
+            animation: pulse 1.5s infinite;
         }
-        
-        .floating-btn {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transition: all 0.3s ease;
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
-        
-        .floating-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        .video-thumbnail {
+            transition: transform 0.2s;
         }
-        
-        .chart-container {
-            position: relative;
-            height: 250px;
-            width: 100%;
+        .video-thumbnail:hover {
+            transform: scale(1.03);
         }
-        
-        .chart-bar {
-            position: absolute;
-            bottom: 0;
-            width: 30px;
-            background: linear-gradient(to top, #3b82f6, #8b5cf6);
-            border-radius: 3px 3px 0 0;
-            transition: height 0.5s ease;
+        #video-history {
+            max-height: 300px;
+            overflow-y: auto;
         }
-        
-        .editable-title {
-            cursor: pointer;
-            transition: all 0.2s;
+        /* Custom scrollbar */
+        #video-history::-webkit-scrollbar {
+            width: 6px;
         }
-        
-        .editable-title:hover {
-            background-color: #f3f4f6;
-            border-radius: 4px;
+        #video-history::-webkit-scrollbar-track {
+            background: #374151;
         }
-        
-        .editable-title-input {
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid #3b82f6;
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1f2937;
-            padding: 0.25rem 0.5rem;
-            width: 100%;
-            outline: none;
-        }
-        
-        .telegram-btn {
-            background: #0088cc;
-            color: white;
-            transition: all 0.3s;
-        }
-        
-        .telegram-btn:hover {
-            background: #0077b3;
-        }
-        
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-        
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 100%;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            min-width: 200px;
-            z-index: 100;
-        }
-        
-        .dropdown-menu.show {
-            display: block;
-            animation: fadeIn 0.2s ease-out;
-        }
-        
-        .dropdown-item {
-            padding: 10px 16px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .dropdown-item:hover {
-            background: #f3f4f6;
+        #video-history::-webkit-scrollbar-thumb {
+            background: #6B7280;
+            border-radius: 3px;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-6xl">
-        <!-- Шапка приложения -->
-        <header class="mb-10">
-            <div class="flex justify-between items-center">
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <i class="fas fa-calendar-check text-blue-500 mr-3"></i>
-                    Протокол планёрок
-                </h1>
-                
-                <!-- Кнопка авторизации Telegram -->
-                <div class="relative">
-                    <div id="auth-container">
-                        <button id="telegram-login-btn" class="telegram-btn px-4 py-2 rounded-lg flex items-center">
-                            <i class="fab fa-telegram mr-2"></i>
-                            Войти через Telegram
-                        </button>
-                        <div id="user-profile" class="hidden flex items-center cursor-pointer">
-                            <img id="user-avatar" src="" alt="User Avatar" class="user-avatar mr-2">
-                            <span id="user-name" class="font-medium"></span>
-                        </div>
-                    </div>
-                    
-                    <!-- Выпадающее меню пользователя -->
-                    <div id="user-dropdown" class="dropdown-menu">
-                        <div class="p-4 border-b border-gray-200 flex items-center">
-                            <img id="dropdown-avatar" src="" alt="User Avatar" class="user-avatar mr-3">
-                            <div>
-                                <div id="dropdown-name" class="font-medium"></div>
-                                <div id="dropdown-username" class="text-sm text-gray-500"></div>
-                            </div>
-                        </div>
-                        <div class="dropdown-item" id="sync-data-btn">
-                            <i class="fas fa-sync-alt mr-2"></i> Синхронизировать данные
-                        </div>
-                        <div class="dropdown-item text-red-500" id="logout-btn">
-                            <i class="fas fa-sign-out-alt mr-2"></i> Выйти
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <p class="text-gray-500 mt-2">Система учета задач и результатов рабочих встреч</p>
-        </header>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
+    <div class="max-w-2xl w-full">
+        <h1 class="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center">
+            <i class="fas fa-camera mr-2"></i>Camera & Video Recorder
+        </h1>
         
-        <main>
-            <!-- Основные вкладки -->
-            <div class="flex border-b border-gray-200 mb-8">
-                <button id="current-tab" class="tab-btn px-4 py-2 font-medium text-blue-500 border-b-2 border-blue-500">Текущая планёрка</button>
-                <button id="history-tab" class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700">Лента планёрок</button>
-                <button id="stats-tab" class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700">Статистика</button>
-            </div>
-            
-            <!-- Контейнер для контента -->
-            <div id="content-container">
-                <!-- Текущая планёрка -->
-                <div id="current-meeting-container" class="fade-in">
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
-                        <div class="p-6 border-b border-gray-200">
-                            <div id="meeting-title-container" class="flex items-center">
-                                <i class="fas fa-calendar-day text-blue-500 mr-3"></i>
-                                <div id="meeting-title" class="editable-title text-xl font-semibold text-gray-800">
-                                    Планёрка от <span id="current-meeting-date"></span>
-                                </div>
-                                <input type="text" id="meeting-title-input" class="editable-title-input hidden" value="">
-                            </div>
-                            <div class="mt-4 flex items-center text-sm text-gray-500">
-                                <div class="mr-4">
-                                    <i class="fas fa-tasks mr-1"></i>
-                                    <span id="total-tasks">0</span> задач
-                                </div>
-                                <div>
-                                    <i class="fas fa-check-circle mr-1"></i>
-                                    <span id="completed-tasks">0</span> выполнено
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Прогресс выполнения -->
-                        <div class="px-6 py-3">
-                            <div class="progress-bar">
-                                <div id="meeting-progress" class="progress-fill" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Список задач -->
-                        <div class="p-6">
-                            <div id="tasks-container" class="space-y-3">
-                                <!-- Задачи будут здесь -->
-                                <div class="text-center py-10 text-gray-400" id="no-tasks-message">
-                                    <i class="fas fa-clipboard-list text-4xl mb-3"></i>
-                                    <p>Нет добавленных задач</p>
-                                    <button id="add-first-task" class="mt-4 px-4 py-2 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100">
-                                        Добавить первую задачу
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Форма добавления задачи -->
-                            <div class="mt-6 flex">
-                                <input type="text" id="new-task-input" placeholder="Добавить новую задачу..." class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <button id="add-task-btn" class="px-4 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Блок заметок -->
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
-                        <div class="p-6 border-b border-gray-200">
-                            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
-                                <i class="fas fa-sticky-note text-yellow-500 mr-3"></i>
-                                Заметки
-                            </h2>
-                        </div>
-                        <div class="p-6">
-                            <textarea id="meeting-notes" placeholder="Добавьте заметки по планёрке..." class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[150px]"></textarea>
-                        </div>
-                    </div>
-                    
-                    <!-- Кнопка завершения планёрки -->
-                    <div class="flex justify-end mb-8">
-                        <button id="complete-meeting-btn" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center">
-                            <i class="fas fa-check-circle mr-2"></i> Завершить планёрку
-                        </button>
-                    </div>
+        <!-- Camera Preview -->
+        <div class="camera-container bg-black rounded-xl overflow-hidden shadow-lg mb-4 sm:mb-6">
+            <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover"></video>
+            <div class="camera-overlay p-3 sm:p-4">
+                <div class="flex justify-between w-full">
+                    <span id="recording-status" class="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs sm:text-sm hidden">
+                        <i class="fas fa-circle text-red-500 recording-indicator mr-1"></i>REC
+                        <span id="recording-time">00:00</span>
+                    </span>
+                    <span id="resolution-display" class="bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs sm:text-sm"></span>
                 </div>
-                
-                <!-- Лента планёрок (скрыта по умолчанию) -->
-                <div id="history-container" class="hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <!-- Карточки планёрок будут здесь -->
-                        <div class="text-center py-10 text-gray-400" id="no-history-message">
-                            <i class="fas fa-history text-4xl mb-3"></i>
-                            <p>Лента планёрок пуста</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Статистика (скрыта по умолчанию) -->
-                <div id="stats-container" class="hidden">
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden p-6">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-6">
-                            <i class="fas fa-chart-line text-purple-500 mr-3"></i>
-                            Статистика выполнения задач
-                        </h2>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div class="bg-blue-50 p-6 rounded-lg">
-                                <div class="text-4xl font-bold text-blue-600 mb-2" id="total-meetings">0</div>
-                                <div class="text-gray-600">Всего планёрок</div>
-                            </div>
-                            <div class="bg-green-50 p-6 rounded-lg">
-                                <div class="text-4xl font-bold text-green-600 mb-2" id="completed-percentage">0%</div>
-                                <div class="text-gray-600">Средний % выполнения</div>
-                            </div>
-                            <div class="bg-purple-50 p-6 rounded-lg">
-                                <div class="text-4xl font-bold text-purple-600 mb-2" id="total-tasks-stats">0</div>
-                                <div class="text-gray-600">Всего задач</div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-50 p-6 rounded-lg">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Прогресс выполнения по дням</h3>
-                            <div class="chart-container" id="completion-chart">
-                                <!-- График будет здесь -->
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-50 p-6 rounded-lg mt-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Распределение задач</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <h4 class="text-md font-medium text-gray-700 mb-3">По статусу</h4>
-                                    <div class="flex items-center mb-2">
-                                        <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-                                        <span class="text-sm">Выполненные: <span id="completed-count">0</span></span>
-                                    </div>
-                                    <div class="flex items-center">
-                                        <div class="w-4 h-4 bg-gray-300 rounded-full mr-2"></div>
-                                        <span class="text-sm">Невыполненные: <span id="pending-count">0</span></span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 class="text-md font-medium text-gray-700 mb-3">По планёркам</h4>
-                                    <div id="meetings-stats">
-                                        <!-- Статистика по планёркам будет здесь -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-        
-        <footer class="mt-16 text-center text-gray-500 text-sm pb-8">
-            <p>© 2025 Протокол планёрок. Все права защищены.</p>
-        </footer>
-    </div>
-
-    <!-- Модальное окно для просмотра планёрки -->
-    <div id="view-meeting-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl transform transition-all fade-in max-h-[90vh] overflow-y-auto">
-            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-xl font-semibold text-gray-800" id="view-meeting-title"></h3>
-                <button id="close-view-meeting-btn" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <div class="mb-6">
-                    <h4 class="text-lg font-medium text-gray-700 mb-3">Задачи</h4>
-                    <div id="view-meeting-tasks" class="space-y-2">
-                        <!-- Задачи будут здесь -->
-                    </div>
-                </div>
-                
-                <div class="mb-6">
-                    <h4 class="text-lg font-medium text-gray-700 mb-3">Заметки</h4>
-                    <div id="view-meeting-notes" class="bg-gray-50 p-4 rounded-lg">
-                        <!-- Заметки будут здесь -->
-                    </div>
-                </div>
-                
-                <div class="flex justify-between items-center">
-                    <div class="text-sm text-gray-500">
-                        <span id="view-meeting-date"></span>
-                    </div>
-                    <button id="edit-meeting-btn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                        <i class="fas fa-edit mr-2"></i> Редактировать
+                <div class="flex justify-center gap-4">
+                    <button id="capture-btn" class="bg-white rounded-full h-10 w-10 sm:h-12 sm:w-12 border-2 sm:border-4 border-gray-300 shadow-lg pointer-events-auto hidden">
+                        <i class="fas fa-camera text-gray-700"></i>
                     </button>
+                    <button id="record-btn" class="bg-white rounded-full h-10 w-10 sm:h-12 sm:w-12 border-2 sm:border-4 border-gray-300 shadow-lg pointer-events-auto hidden">
+                        <i class="fas fa-video text-gray-700"></i>
+                    </button>
+                </div>
+                <div></div>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-6">
+            <button id="start-camera" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition flex items-center justify-center">
+                <i class="fas fa-play mr-2"></i> Start Camera
+            </button>
+            <button id="stop-camera" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition disabled:opacity-50 flex items-center justify-center" disabled>
+                <i class="fas fa-stop mr-2"></i> Stop Camera
+            </button>
+            <button id="switch-camera" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 sm:py-3 sm:px-6 rounded-lg transition hidden flex items-center justify-center">
+                <i class="fas fa-sync-alt mr-2"></i> Switch
+            </button>
+        </div>
+        
+        <!-- Settings Panel -->
+        <div class="mb-6 bg-gray-800 p-4 rounded-lg hidden" id="settings-panel">
+            <h2 class="text-lg sm:text-xl font-semibold mb-3 flex items-center">
+                <i class="fas fa-cog mr-2"></i> Camera Settings
+            </h2>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1"><i class="fas fa-video mr-1"></i> Camera</label>
+                    <select id="camera-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm sm:text-base"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1"><i class="fas fa-expand mr-1"></i> Resolution</label>
+                    <select id="resolution-select" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm sm:text-base"></select>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Модальное окно для редактирования планёрки -->
-    <div id="edit-meeting-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl transform transition-all fade-in max-h-[90vh] overflow-y-auto">
-            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-xl font-semibold text-gray-800">Редактирование планёрки</h3>
-                <button id="close-edit-meeting-btn" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Название планёрки</label>
-                    <input type="text" id="edit-meeting-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Дата планёрки</label>
-                    <input type="date" id="edit-meeting-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div class="mb-6">
-                    <h4 class="text-lg font-medium text-gray-700 mb-3">Задачи</h4>
-                    <div id="edit-meeting-tasks-container" class="space-y-3 mb-4">
-                        <!-- Задачи для редактирования будут здесь -->
-                    </div>
-                    <button id="add-task-in-edit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                        <i class="fas fa-plus mr-2"></i> Добавить задачу
-                    </button>
-                </div>
-                
-                <div class="mb-6">
-                    <h4 class="text-lg font-medium text-gray-700 mb-3">Заметки</h4>
-                    <textarea id="edit-meeting-notes" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[150px]"></textarea>
-                </div>
-                
-                <div class="flex justify-between">
-                    <button id="delete-meeting-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-                        <i class="fas fa-trash mr-2"></i> Удалить планёрку
-                    </button>
-                    <div>
-                        <button id="cancel-edit-meeting-btn" class="px-4 py-2 text-gray-600 mr-3 hover:text-gray-800">Отмена</button>
-                        <button id="save-edit-meeting-btn" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Сохранить</button>
-                    </div>
-                </div>
+        
+        <!-- Video History -->
+        <div class="bg-gray-800 p-4 rounded-lg" id="history-panel">
+            <h2 class="text-lg sm:text-xl font-semibold mb-3 flex items-center">
+                <i class="fas fa-history mr-2"></i> Video History
+            </h2>
+            <div id="video-history" class="space-y-3">
+                <p class="text-gray-400 text-center py-4" id="empty-history-message">
+                    No recordings yet. Start recording to see your videos here.
+                </p>
+                <!-- Videos will be added here dynamically -->
             </div>
         </div>
     </div>
 
     <script>
-        // Состояние приложения
-        const state = {
-            meetings: [],
-            currentMeeting: null,
-            activeTab: 'current',
-            editingMeetingId: null,
-            user: null,
-            isSyncing: false
-        };
-        
-        // Элементы DOM
-        const elements = {
-            currentTab: document.getElementById('current-tab'),
-            historyTab: document.getElementById('history-tab'),
-            statsTab: document.getElementById('stats-tab'),
-            currentMeetingContainer: document.getElementById('current-meeting-container'),
-            historyContainer: document.getElementById('history-container'),
-            statsContainer: document.getElementById('stats-container'),
-            meetingTitle: document.getElementById('meeting-title'),
-            meetingTitleInput: document.getElementById('meeting-title-input'),
-            meetingTitleContainer: document.getElementById('meeting-title-container'),
-            currentMeetingDate: document.getElementById('current-meeting-date'),
-            tasksContainer: document.getElementById('tasks-container'),
-            newTaskInput: document.getElementById('new-task-input'),
-            addTaskBtn: document.getElementById('add-task-btn'),
-            addFirstTask: document.getElementById('add-first-task'),
-            noTasksMessage: document.getElementById('no-tasks-message'),
-            meetingNotes: document.getElementById('meeting-notes'),
-            totalTasks: document.getElementById('total-tasks'),
-            completedTasks: document.getElementById('completed-tasks'),
-            meetingProgress: document.getElementById('meeting-progress'),
-            noHistoryMessage: document.getElementById('no-history-message'),
-            totalMeetings: document.getElementById('total-meetings'),
-            completedPercentage: document.getElementById('completed-percentage'),
-            totalTasksStats: document.getElementById('total-tasks-stats'),
-            completeMeetingBtn: document.getElementById('complete-meeting-btn'),
-            completionChart: document.getElementById('completion-chart'),
-            completedCount: document.getElementById('completed-count'),
-            pendingCount: document.getElementById('pending-count'),
-            meetingsStats: document.getElementById('meetings-stats'),
-            viewMeetingModal: document.getElementById('view-meeting-modal'),
-            viewMeetingTitle: document.getElementById('view-meeting-title'),
-            viewMeetingTasks: document.getElementById('view-meeting-tasks'),
-            viewMeetingNotes: document.getElementById('view-meeting-notes'),
-            viewMeetingDate: document.getElementById('view-meeting-date'),
-            closeViewMeetingBtn: document.getElementById('close-view-meeting-btn'),
-            editMeetingBtn: document.getElementById('edit-meeting-btn'),
-            editMeetingModal: document.getElementById('edit-meeting-modal'),
-            editMeetingTitle: document.getElementById('edit-meeting-title'),
-            editMeetingDate: document.getElementById('edit-meeting-date'),
-            editMeetingTasksContainer: document.getElementById('edit-meeting-tasks-container'),
-            editMeetingNotes: document.getElementById('edit-meeting-notes'),
-            addTaskInEdit: document.getElementById('add-task-in-edit'),
-            closeEditMeetingBtn: document.getElementById('close-edit-meeting-btn'),
-            cancelEditMeetingBtn: document.getElementById('cancel-edit-meeting-btn'),
-            saveEditMeetingBtn: document.getElementById('save-edit-meeting-btn'),
-            deleteMeetingBtn: document.getElementById('delete-meeting-btn'),
-            telegramLoginBtn: document.getElementById('telegram-login-btn'),
-            userProfile: document.getElementById('user-profile'),
-            userAvatar: document.getElementById('user-avatar'),
-            userName: document.getElementById('user-name'),
-            userDropdown: document.getElementById('user-dropdown'),
-            dropdownAvatar: document.getElementById('dropdown-avatar'),
-            dropdownName: document.getElementById('dropdown-name'),
-            dropdownUsername: document.getElementById('dropdown-username'),
-            syncDataBtn: document.getElementById('sync-data-btn'),
-            logoutBtn: document.getElementById('logout-btn'),
-            authContainer: document.getElementById('auth-container')
-        };
-        
-        // Инициализация приложения
-        function init() {
-            // Проверяем, есть ли Telegram WebApp
-            if (window.Telegram && Telegram.WebApp) {
-                initTelegramAuth();
-            } else {
-                // Если нет Telegram WebApp, показываем обычную кнопку входа
-                setupManualTelegramAuth();
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('camera-feed');
+            const startBtn = document.getElementById('start-camera');
+            const stopBtn = document.getElementById('stop-camera');
+            const switchBtn = document.getElementById('switch-camera');
+            const captureBtn = document.getElementById('capture-btn');
+            const recordBtn = document.getElementById('record-btn');
+            const recordingStatus = document.getElementById('recording-status');
+            const recordingTime = document.getElementById('recording-time');
+            const resolutionDisplay = document.getElementById('resolution-display');
+            const settingsPanel = document.getElementById('settings-panel');
+            const cameraSelect = document.getElementById('camera-select');
+            const resolutionSelect = document.getElementById('resolution-select');
+            const videoHistory = document.getElementById('video-history');
+            const emptyHistoryMessage = document.getElementById('empty-history-message');
             
-            // Загружаем данные из localStorage
-            loadData();
+            let stream = null;
+            let mediaRecorder = null;
+            let recordedChunks = [];
+            let currentDeviceId = null;
+            let cameras = [];
+            let recordingInterval = null;
+            let recordingSeconds = 0;
+            let videoHistoryData = JSON.parse(localStorage.getItem('videoHistory')) || [];
             
-            // Если нет текущей планёрки, создаем новую
-            if (!state.currentMeeting) {
-                createNewMeeting();
-            } else {
-                renderCurrentMeeting();
-            }
+            // Load video history
+            renderVideoHistory();
             
-            // Обработчики событий
-            setupEventListeners();
-        }
-        
-        // Инициализация авторизации через Telegram WebApp
-        function initTelegramAuth() {
-            const tg = Telegram.WebApp;
-            
-            // Если пользователь уже авторизован
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                const user = tg.initDataUnsafe.user;
-                state.user = {
-                    id: user.id,
-                    firstName: user.first_name,
-                    lastName: user.last_name || '',
-                    username: user.username || '',
-                    photoUrl: user.photo_url || ''
-                };
-                
-                updateUserUI();
-                loadUserData();
-            } else {
-                // Показываем кнопку авторизации
-                elements.telegramLoginBtn.classList.remove('hidden');
-                elements.telegramLoginBtn.addEventListener('click', () => {
-                    tg.expand();
-                    tg.showAlert('Для авторизации откройте это приложение через Telegram');
-                });
-            }
-        }
-        
-        // Настройка ручной авторизации (если не в Telegram WebApp)
-        function setupManualTelegramAuth() {
-            // Проверяем, есть ли сохраненный пользователь
-            const savedUser = localStorage.getItem('tg_user');
-            if (savedUser) {
-                state.user = JSON.parse(savedUser);
-                updateUserUI();
-                loadUserData();
-            } else {
-                elements.telegramLoginBtn.classList.remove('hidden');
-                elements.telegramLoginBtn.addEventListener('click', () => {
-                    // Эмуляция авторизации для демонстрации
-                    state.user = {
-                        id: Math.floor(Math.random() * 1000000),
-                        firstName: 'Демо',
-                        lastName: 'Пользователь',
-                        username: 'demo_user',
-                        photoUrl: 'https://via.placeholder.com/150'
+            // Start camera
+            startBtn.addEventListener('click', async function() {
+                try {
+                    const constraints = {
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'environment'
+                        },
+                        audio: true // Enable audio for video recording
                     };
                     
-                    localStorage.setItem('tg_user', JSON.stringify(state.user));
-                    updateUserUI();
-                    loadUserData();
-                });
-            }
-        }
-        
-        // Обновление UI после авторизации
-        function updateUserUI() {
-            elements.telegramLoginBtn.classList.add('hidden');
-            elements.userProfile.classList.remove('hidden');
-            
-            // Устанавливаем аватар и имя пользователя
-            elements.userAvatar.src = state.user.photoUrl || 'https://via.placeholder.com/150';
-            elements.userName.textContent = `${state.user.firstName} ${state.user.lastName}`.trim();
-            
-            // Заполняем выпадающее меню
-            elements.dropdownAvatar.src = state.user.photoUrl || 'https://via.placeholder.com/150';
-            elements.dropdownName.textContent = `${state.user.firstName} ${state.user.lastName}`.trim();
-            elements.dropdownUsername.textContent = state.user.username ? `@${state.user.username}` : '';
-        }
-        
-        // Загрузка данных пользователя
-        function loadUserData() {
-            // В реальном приложении здесь бы был запрос к серверу
-            // Для демонстрации используем localStorage с привязкой к ID пользователя
-            const userData = localStorage.getItem(`meetingPlanner_${state.user.id}`);
-            
-            if (userData) {
-                const data = JSON.parse(userData);
-                state.meetings = data.meetings || [];
-                state.currentMeeting = data.currentMeeting || null;
-                
-                if (!state.currentMeeting) {
-                    createNewMeeting();
-                } else {
-                    renderCurrentMeeting();
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    switchBtn.classList.remove('hidden');
+                    captureBtn.classList.remove('hidden');
+                    recordBtn.classList.remove('hidden');
+                    settingsPanel.classList.remove('hidden');
+                    
+                    // Update resolution display
+                    const track = stream.getVideoTracks()[0];
+                    const settings = track.getSettings();
+                    resolutionDisplay.textContent = `${settings.width}×${settings.height}`;
+                    
+                    // Get available cameras
+                    await getCameras();
+                    
+                    // Get available resolutions for current camera
+                    await getResolutions();
+                    
+                    // Initialize media recorder
+                    initMediaRecorder();
+                    
+                } catch (err) {
+                    console.error("Error accessing camera:", err);
+                    showError("Could not access the camera. Please make sure you've granted camera and microphone permissions.");
                 }
-            } else {
-                // Если у пользователя нет сохраненных данных, создаем новую планёрку
-                createNewMeeting();
-            }
-        }
-        
-        // Сохранение данных пользователя
-        function saveUserData() {
-            if (!state.user) return;
-            
-            const data = {
-                meetings: state.meetings,
-                currentMeeting: state.currentMeeting
-            };
-            
-            localStorage.setItem(`meetingPlanner_${state.user.id}`, JSON.stringify(data));
-        }
-        
-        // Синхронизация данных с сервером (эмуляция)
-        function syncData() {
-            if (!state.user || state.isSyncing) return;
-            
-            state.isSyncing = true;
-            elements.syncDataBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Синхронизация...';
-            
-            // Эмуляция запроса к серверу
-            setTimeout(() => {
-                // В реальном приложении здесь бы был fetch/axios запрос
-                console.log('Данные синхронизированы с сервером');
-                
-                state.isSyncing = false;
-                elements.syncDataBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Синхронизировать данные';
-                
-                // Показываем уведомление
-                showNotification('Данные успешно синхронизированы', 'success');
-            }, 1500);
-        }
-        
-        // Выход пользователя
-        function logout() {
-            if (window.Telegram && Telegram.WebApp) {
-                Telegram.WebApp.close();
-            } else {
-                state.user = null;
-                localStorage.removeItem('tg_user');
-                
-                // Скрываем профиль и показываем кнопку входа
-                elements.userProfile.classList.add('hidden');
-                elements.telegramLoginBtn.classList.remove('hidden');
-                elements.userDropdown.classList.remove('show');
-                
-                // Очищаем данные (или сохраняем локально для неавторизованных пользователей)
-                saveData();
-            }
-        }
-        
-        // Показать уведомление
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white ${
-                type === 'success' ? 'bg-green-500' : 
-                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-            }`;
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fas ${
-                        type === 'success' ? 'fa-check-circle' : 
-                        type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'
-                    } mr-2"></i>
-                    <span>${message}</span>
-                </div>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
-        }
-        
-        // Загрузка данных из localStorage
-        function loadData() {
-            // Для неавторизованных пользователей используем общее хранилище
-            if (!state.user) {
-                const savedData = localStorage.getItem('meetingPlanner');
-                if (savedData) {
-                    const data = JSON.parse(savedData);
-                    state.meetings = data.meetings || [];
-                    state.currentMeeting = data.currentMeeting || null;
-                }
-            }
-        }
-        
-        // Сохранение данных в localStorage
-        function saveData() {
-            if (state.user) {
-                saveUserData();
-            } else {
-                // Для неавторизованных пользователей сохраняем в общее хранилище
-                const data = {
-                    meetings: state.meetings,
-                    currentMeeting: state.currentMeeting
-                };
-                localStorage.setItem('meetingPlanner', JSON.stringify(data));
-            }
-        }
-        
-        // Создание новой планёрки
-        function createNewMeeting(topic = '') {
-            const now = new Date();
-            const dateString = now.toLocaleDateString('ru-RU', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
             });
             
-            const meeting = {
-                id: Date.now(),
-                date: now.toISOString(),
-                dateString: dateString,
-                title: topic || `Планёрка от ${dateString}`,
-                tasks: [],
-                notes: '',
-                completed: false
-            };
+            // Stop camera
+            stopBtn.addEventListener('click', function() {
+                if (stream) {
+                    // Stop recording if active
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        stopRecording();
+                    }
+                    
+                    stream.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                    
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    switchBtn.classList.add('hidden');
+                    captureBtn.classList.add('hidden');
+                    recordBtn.classList.add('hidden');
+                    recordingStatus.classList.add('hidden');
+                    resolutionDisplay.textContent = '';
+                }
+            });
             
-            state.currentMeeting = meeting;
-            renderCurrentMeeting();
-            saveData();
-        }
-        
-        // Рендер текущей планёрки
-        function renderCurrentMeeting() {
-            if (!state.currentMeeting) return;
+            // Switch camera
+            switchBtn.addEventListener('click', async function() {
+                if (!cameras || cameras.length < 2) return;
+                
+                const currentIndex = cameras.findIndex(cam => cam.deviceId === currentDeviceId);
+                const nextIndex = (currentIndex + 1) % cameras.length;
+                const nextCamera = cameras[nextIndex];
+                
+                await switchCamera(nextCamera.deviceId);
+            });
             
-            elements.currentMeetingDate.textContent = state.currentMeeting.dateString;
+            // Camera select change
+            cameraSelect.addEventListener('change', async function() {
+                await switchCamera(this.value);
+            });
             
-            // Устанавливаем заголовок планёрки
-            if (state.currentMeeting.title) {
-                elements.meetingTitle.innerHTML = state.currentMeeting.title;
-            } else {
-                elements.meetingTitle.innerHTML = `Планёрка от <span id="current-meeting-date">${state.currentMeeting.dateString}</span>`;
+            // Resolution select change
+            resolutionSelect.addEventListener('change', async function() {
+                const resolution = this.value.split('x');
+                await setResolution(parseInt(resolution[0]), parseInt(resolution[1]));
+            });
+            
+            // Capture photo
+            captureBtn.addEventListener('click', function() {
+                if (!stream) return;
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw mirrored image
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Convert to data URL
+                const imageUrl = canvas.toDataURL('image/png');
+                
+                // Create download link
+                const a = document.createElement('a');
+                a.href = imageUrl;
+                a.download = `photo_${formatTimestamp()}.png`;
+                a.click();
+                
+                // Visual feedback
+                captureBtn.innerHTML = '<i class="fas fa-check text-green-600"></i>';
+                setTimeout(() => {
+                    captureBtn.innerHTML = '<i class="fas fa-camera text-gray-700"></i>';
+                }, 1000);
+            });
+            
+            // Record video
+            recordBtn.addEventListener('click', function() {
+                if (!mediaRecorder) return;
+                
+                if (mediaRecorder.state === 'inactive') {
+                    startRecording();
+                } else {
+                    mediaRecorder.stop();
+                    stopRecording();
+                }
+            });
+            
+            // Initialize media recorder
+            function initMediaRecorder() {
+                if (!stream) return;
+                
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = function(e) {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = function() {
+                    const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                    const videoUrl = URL.createObjectURL(blob);
+                    
+                    // Add to history
+                    const videoData = {
+                        id: Date.now(),
+                        url: videoUrl,
+                        timestamp: new Date().toISOString(),
+                        duration: recordingSeconds
+                    };
+                    
+                    videoHistoryData.unshift(videoData);
+                    localStorage.setItem('videoHistory', JSON.stringify(videoHistoryData));
+                    renderVideoHistory();
+                    
+                    // Reset recording
+                    recordedChunks = [];
+                    recordingSeconds = 0;
+                };
             }
             
-            elements.meetingNotes.value = state.currentMeeting.notes || '';
-            
-            renderTasks();
-            updateProgress();
-        }
-        
-        // Рендер списка задач
-        function renderTasks() {
-            if (!state.currentMeeting) return;
-            
-            const tasks = state.currentMeeting.tasks;
-            
-            if (tasks.length === 0) {
-                elements.noTasksMessage.classList.remove('hidden');
-                elements.tasksContainer.innerHTML = '';
-            } else {
-                elements.noTasksMessage.classList.add('hidden');
+            // Start recording
+            function startRecording() {
+                if (!mediaRecorder) return;
                 
-                let tasksHTML = '';
-                tasks.forEach((task, index) => {
-                    tasksHTML += `
-                        <div class="task-item slide-in flex items-center p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50" data-index="${index}">
-                            <input type="checkbox" ${task.completed ? 'checked' : ''} class="checkbox-custom mr-3">
-                            <div class="flex-1 ${task.completed ? 'task-completed' : ''}">${task.text}</div>
-                            <button class="delete-task-btn text-gray-400 hover:text-red-500 ml-2">
-                                <i class="fas fa-trash-alt"></i>
+                mediaRecorder.start(100); // Collect data every 100ms
+                recordingStatus.classList.remove('hidden');
+                recordBtn.innerHTML = '<i class="fas fa-square text-red-600"></i>';
+                
+                // Start timer
+                recordingSeconds = 0;
+                updateRecordingTime();
+                recordingInterval = setInterval(updateRecordingTime, 1000);
+            }
+            
+            // Stop recording
+            function stopRecording() {
+                if (!mediaRecorder) return;
+                
+                recordingStatus.classList.add('hidden');
+                recordBtn.innerHTML = '<i class="fas fa-video text-gray-700"></i>';
+                
+                // Stop timer
+                if (recordingInterval) {
+                    clearInterval(recordingInterval);
+                    recordingInterval = null;
+                }
+            }
+            
+            // Update recording time display
+            function updateRecordingTime() {
+                recordingSeconds++;
+                const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
+                const seconds = (recordingSeconds % 60).toString().padStart(2, '0');
+                recordingTime.textContent = `${minutes}:${seconds}`;
+            }
+            
+            // Get available cameras
+            async function getCameras() {
+                cameras = [];
+                cameraSelect.innerHTML = '';
+                
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                if (videoDevices.length === 0) {
+                    console.log('No cameras found');
+                    return;
+                }
+                
+                cameras = videoDevices;
+                
+                videoDevices.forEach((device, i) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${i + 1}`;
+                    cameraSelect.appendChild(option);
+                    
+                    // Set current device
+                    const track = stream.getVideoTracks()[0];
+                    if (track.getSettings().deviceId === device.deviceId) {
+                        currentDeviceId = device.deviceId;
+                        cameraSelect.value = device.deviceId;
+                    }
+                });
+            }
+            
+            // Get available resolutions for current camera
+            async function getResolutions() {
+                resolutionSelect.innerHTML = '';
+                
+                if (!stream) return;
+                
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.width && capabilities.height) {
+                    // Common resolutions
+                    const resolutions = [
+                        { width: 320, height: 240 },
+                        { width: 640, height: 480 },
+                        { width: 800, height: 600 },
+                        { width: 1024, height: 768 },
+                        { width: 1280, height: 720 },
+                        { width: 1920, height: 1080 }
+                    ];
+                    
+                    // Filter resolutions that are supported
+                    const supportedResolutions = resolutions.filter(res => 
+                        res.width <= capabilities.width.max && 
+                        res.height <= capabilities.height.max
+                    );
+                    
+                    // Add current resolution if not in list
+                    const settings = track.getSettings();
+                    const currentRes = `${settings.width}x${settings.height}`;
+                    let hasCurrent = false;
+                    
+                    supportedResolutions.forEach(res => {
+                        const resStr = `${res.width}x${res.height}`;
+                        const option = document.createElement('option');
+                        option.value = resStr;
+                        option.text = resStr;
+                        resolutionSelect.appendChild(option);
+                        
+                        if (resStr === currentRes) {
+                            option.selected = true;
+                            hasCurrent = true;
+                        }
+                    });
+                    
+                    if (!hasCurrent) {
+                        const option = document.createElement('option');
+                        option.value = currentRes;
+                        option.text = currentRes;
+                        option.selected = true;
+                        resolutionSelect.insertBefore(option, resolutionSelect.firstChild);
+                    }
+                }
+            }
+            
+            // Switch to specific camera
+            async function switchCamera(deviceId) {
+                if (!stream) return;
+                
+                // Stop current stream and recording if active
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    stopRecording();
+                }
+                
+                stream.getTracks().forEach(track => track.stop());
+                
+                try {
+                    const constraints = {
+                        video: {
+                            deviceId: { exact: deviceId },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: true
+                    };
+                    
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    currentDeviceId = deviceId;
+                    
+                    // Update resolution display
+                    const track = stream.getVideoTracks()[0];
+                    const settings = track.getSettings();
+                    resolutionDisplay.textContent = `${settings.width}×${settings.height}`;
+                    
+                    // Update camera select
+                    cameraSelect.value = deviceId;
+                    
+                    // Get available resolutions for new camera
+                    await getResolutions();
+                    
+                    // Reinitialize media recorder with new stream
+                    initMediaRecorder();
+                    
+                } catch (err) {
+                    console.error("Error switching camera:", err);
+                    showError("Could not switch camera. Please try again.");
+                }
+            }
+            
+            // Set specific resolution
+            async function setResolution(width, height) {
+                if (!stream) return;
+                
+                const track = stream.getVideoTracks()[0];
+                
+                try {
+                    await track.applyConstraints({
+                        width: { exact: width },
+                        height: { exact: height }
+                    });
+                    
+                    // Update resolution display
+                    const settings = track.getSettings();
+                    resolutionDisplay.textContent = `${settings.width}×${settings.height}`;
+                    
+                } catch (err) {
+                    console.error("Error setting resolution:", err);
+                    showError("This resolution is not supported by the current camera.");
+                }
+            }
+            
+            // Render video history
+            function renderVideoHistory() {
+                if (videoHistoryData.length === 0) {
+                    emptyHistoryMessage.classList.remove('hidden');
+                    return;
+                }
+                
+                emptyHistoryMessage.classList.add('hidden');
+                videoHistory.innerHTML = '';
+                
+                videoHistoryData.forEach(video => {
+                    const videoItem = document.createElement('div');
+                    videoItem.className = 'bg-gray-700 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3 video-thumbnail';
+                    videoItem.innerHTML = `
+                        <div class="flex-shrink-0 relative">
+                            <video src="${video.url}" class="w-24 h-16 object-cover rounded"></video>
+                            <div class="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
+                                ${formatDuration(video.duration)}
+                            </div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="text-sm font-medium">Recording ${new Date(video.timestamp).toLocaleString()}</div>
+                            <div class="text-xs text-gray-400">${formatFileSize(getVideoSize(video.url))}</div>
+                        </div>
+                        <div class="flex gap-2 self-end sm:self-auto">
+                            <button class="download-btn bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-3 rounded" data-id="${video.id}">
+                                <i class="fas fa-download mr-1"></i> Download
+                            </button>
+                            <button class="delete-btn bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-3 rounded" data-id="${video.id}">
+                                <i class="fas fa-trash mr-1"></i> Delete
                             </button>
                         </div>
                     `;
-                });
-                
-                elements.tasksContainer.innerHTML = tasksHTML;
-                
-                // Добавляем обработчики событий для чекбоксов и кнопок удаления
-                document.querySelectorAll('.task-item input[type="checkbox"]').forEach((checkbox, index) => {
-                    checkbox.addEventListener('change', () => toggleTaskComplete(index));
-                });
-                
-                document.querySelectorAll('.delete-task-btn').forEach((btn, index) => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        deleteTask(index);
-                    });
-                });
-            }
-        }
-        
-        // Обновление прогресса выполнения
-        function updateProgress() {
-            if (!state.currentMeeting) return;
-            
-            const tasks = state.currentMeeting.tasks;
-            const total = tasks.length;
-            const completed = tasks.filter(t => t.completed).length;
-            
-            elements.totalTasks.textContent = total;
-            elements.completedTasks.textContent = completed;
-            
-            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-            elements.meetingProgress.style.width = `${percentage}%`;
-            
-            // Обновляем статистику, если активна вкладка статистики
-            if (state.activeTab === 'stats') {
-                renderStats();
-            }
-        }
-        
-        // Добавление новой задачи
-        function addTask() {
-            const taskText = elements.newTaskInput.value.trim();
-            if (!taskText || !state.currentMeeting) return;
-            
-            const task = {
-                text: taskText,
-                completed: false,
-                createdAt: new Date().toISOString()
-            };
-            
-            state.currentMeeting.tasks.push(task);
-            elements.newTaskInput.value = '';
-            
-            renderTasks();
-            updateProgress();
-            saveData();
-        }
-        
-        // Переключение статуса задачи
-        function toggleTaskComplete(index) {
-            if (!state.currentMeeting) return;
-            
-            state.currentMeeting.tasks[index].completed = !state.currentMeeting.tasks[index].completed;
-            updateProgress();
-            renderTasks(); // Перерендериваем, чтобы применить стиль task-completed
-            saveData();
-        }
-        
-        // Удаление задачи
-        function deleteTask(index) {
-            if (!state.currentMeeting) return;
-            
-            state.currentMeeting.tasks.splice(index, 1);
-            renderTasks();
-            updateProgress();
-            saveData();
-        }
-        
-        // Сохранение заметок
-        function saveNotes() {
-            if (!state.currentMeeting) return;
-            
-            state.currentMeeting.notes = elements.meetingNotes.value;
-            saveData();
-        }
-        
-        // Завершение текущей планёрки
-        function completeCurrentMeeting() {
-            if (!state.currentMeeting) return;
-            
-            state.currentMeeting.completed = true;
-            state.meetings.push(state.currentMeeting);
-            state.currentMeeting = null;
-            
-            saveData();
-            createNewMeeting();
-            switchTab('current');
-        }
-        
-        // Рендер ленты планёрок
-        function renderHistory() {
-            const completedMeetings = state.meetings.filter(m => m.completed);
-            
-            if (completedMeetings.length === 0) {
-                elements.noHistoryMessage.classList.remove('hidden');
-                elements.historyContainer.querySelector('.grid').innerHTML = '';
-            } else {
-                elements.noHistoryMessage.classList.add('hidden');
-                
-                let historyHTML = '';
-                completedMeetings.forEach(meeting => {
-                    const tasks = meeting.tasks;
-                    const total = tasks.length;
-                    const completed = tasks.filter(t => t.completed).length;
-                    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
                     
-                    historyHTML += `
-                        <div class="meeting-card bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 cursor-pointer" data-id="${meeting.id}">
-                            <div class="p-6 border-b border-gray-200">
-                                <h3 class="text-lg font-semibold text-gray-800">${meeting.title} <span class="text-sm font-normal text-gray-500">(${meeting.dateString})</span></h3>
-                            </div>
-                            <div class="p-6">
-                                <div class="flex justify-between items-center mb-3">
-                                    <span class="text-sm text-gray-600">${completed}/${total} задач выполнено</span>
-                                    <span class="text-sm font-medium ${percentage === 100 ? 'text-green-500' : percentage > 50 ? 'text-blue-500' : 'text-yellow-500'}">${percentage}%</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${percentage}%"></div>
-                                </div>
-                                <div class="mt-4 text-sm text-gray-500">
-                                    ${meeting.notes ? `<p class="truncate"><i class="fas fa-sticky-note mr-2"></i>${meeting.notes}</p>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    videoHistory.appendChild(videoItem);
                 });
                 
-                elements.historyContainer.querySelector('.grid').innerHTML = historyHTML;
+                // Add event listeners for download and delete buttons
+                document.querySelectorAll('.download-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const videoId = parseInt(this.getAttribute('data-id'));
+                        downloadVideo(videoId);
+                    });
+                });
                 
-                // Добавляем обработчики клика на карточки планёрок
-                document.querySelectorAll('.meeting-card').forEach(card => {
-                    card.addEventListener('click', () => {
-                        const meetingId = parseInt(card.getAttribute('data-id'));
-                        showMeetingDetails(meetingId);
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const videoId = parseInt(this.getAttribute('data-id'));
+                        deleteVideo(videoId);
                     });
                 });
             }
-        }
-        
-        // Показать детали планёрки
-        function showMeetingDetails(meetingId) {
-            const meeting = state.meetings.find(m => m.id === meetingId);
-            if (!meeting) return;
             
-            elements.viewMeetingTitle.textContent = meeting.title;
-            elements.viewMeetingDate.textContent = meeting.dateString;
-            
-            // Рендерим задачи
-            let tasksHTML = '';
-            meeting.tasks.forEach(task => {
-                tasksHTML += `
-                    <div class="flex items-center p-2 bg-gray-50 rounded">
-                        <div class="w-5 h-5 flex items-center justify-center mr-3">
-                            ${task.completed ? '<i class="fas fa-check text-green-500"></i>' : '<i class="fas fa-circle-notch text-gray-400"></i>'}
-                        </div>
-                        <div class="${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}">${task.text}</div>
-                    </div>
-                `;
-            });
-            elements.viewMeetingTasks.innerHTML = tasksHTML || '<p class="text-gray-500">Нет задач</p>';
-            
-            // Рендерим заметки
-            elements.viewMeetingNotes.textContent = meeting.notes || 'Нет заметок';
-            
-            // Сохраняем ID редактируемой планёрки
-            state.editingMeetingId = meetingId;
-            
-            // Показываем модальное окно
-            elements.viewMeetingModal.classList.remove('hidden');
-        }
-        
-        // Редактирование планёрки
-        function editMeeting() {
-            const meetingId = state.editingMeetingId;
-            if (!meetingId) return;
-            
-            const meeting = state.meetings.find(m => m.id === meetingId);
-            if (!meeting) return;
-            
-            // Заполняем форму редактирования
-            elements.editMeetingTitle.value = meeting.title;
-            
-            // Преобразуем дату в формат для input[type="date"]
-            const date = new Date(meeting.date);
-            const dateString = date.toISOString().split('T')[0];
-            elements.editMeetingDate.value = dateString;
-            
-            // Рендерим задачи для редактирования
-            let tasksHTML = '';
-            meeting.tasks.forEach((task, index) => {
-                tasksHTML += `
-                    <div class="flex items-center p-2 bg-gray-50 rounded mb-2" data-index="${index}">
-                        <input type="checkbox" ${task.completed ? 'checked' : ''} class="checkbox-custom mr-3">
-                        <input type="text" value="${task.text}" class="flex-1 px-3 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent">
-                        <button class="delete-task-in-edit text-gray-400 hover:text-red-500 ml-2">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                `;
-            });
-            elements.editMeetingTasksContainer.innerHTML = tasksHTML;
-            
-            // Добавляем обработчики для удаления задач в режиме редактирования
-            document.querySelectorAll('.delete-task-in-edit').forEach((btn, index) => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    meeting.tasks.splice(index, 1);
-                    editMeeting(); // Перерендериваем
-                });
-            });
-            
-            // Добавляем обработчики для чекбоксов в режиме редактирования
-            document.querySelectorAll('#edit-meeting-tasks-container input[type="checkbox"]').forEach((checkbox, index) => {
-                checkbox.addEventListener('change', () => {
-                    meeting.tasks[index].completed = !meeting.tasks[index].completed;
-                });
-            });
-            
-            // Заполняем заметки
-            elements.editMeetingNotes.value = meeting.notes || '';
-            
-            // Переключаемся на модальное окно редактирования
-            elements.viewMeetingModal.classList.add('hidden');
-            elements.editMeetingModal.classList.remove('hidden');
-        }
-        
-        // Сохранение изменений планёрки
-        function saveEditedMeeting() {
-            const meetingId = state.editingMeetingId;
-            if (!meetingId) return;
-            
-            const meeting = state.meetings.find(m => m.id === meetingId);
-            if (!meeting) return;
-            
-            // Обновляем данные планёрки
-            meeting.title = elements.editMeetingTitle.value.trim();
-            
-            // Обновляем дату
-            const newDate = new Date(elements.editMeetingDate.value);
-            meeting.date = newDate.toISOString();
-            meeting.dateString = newDate.toLocaleDateString('ru-RU', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-            });
-            
-            // Обновляем заметки
-            meeting.notes = elements.editMeetingNotes.value;
-            
-            // Сохраняем изменения
-            saveData();
-            
-            // Закрываем модальное окно
-            elements.editMeetingModal.classList.add('hidden');
-            
-            // Перерендериваем историю
-            renderHistory();
-            
-            // Показываем модальное окно просмотра с обновленными данными
-            showMeetingDetails(meetingId);
-        }
-        
-        // Удаление планёрки
-        function deleteMeeting() {
-            const meetingId = state.editingMeetingId;
-            if (!meetingId) return;
-            
-            if (confirm('Вы уверены, что хотите удалить эту планёрку? Это действие нельзя отменить.')) {
-                state.meetings = state.meetings.filter(m => m.id !== meetingId);
-                saveData();
+            // Download video
+            function downloadVideo(videoId) {
+                const video = videoHistoryData.find(v => v.id === videoId);
+                if (!video) return;
                 
-                // Закрываем модальные окна
-                elements.editMeetingModal.classList.add('hidden');
-                elements.viewMeetingModal.classList.add('hidden');
-                
-                // Перерендериваем историю
-                renderHistory();
-                
-                // Сбрасываем ID редактируемой планёрки
-                state.editingMeetingId = null;
-            }
-        }
-        
-        // Рендер статистики
-        function renderStats() {
-            const completedMeetings = state.meetings.filter(m => m.completed);
-            const totalMeetings = completedMeetings.length;
-            
-            let totalTasks = 0;
-            let totalCompleted = 0;
-            
-            completedMeetings.forEach(meeting => {
-                totalTasks += meeting.tasks.length;
-                totalCompleted += meeting.tasks.filter(t => t.completed).length;
-            });
-            
-            // Добавляем текущую планёрку в статистику, если есть задачи
-            if (state.currentMeeting && state.currentMeeting.tasks.length > 0) {
-                totalTasks += state.currentMeeting.tasks.length;
-                totalCompleted += state.currentMeeting.tasks.filter(t => t.completed).length;
+                const a = document.createElement('a');
+                a.href = video.url;
+                a.download = `recording_${new Date(video.timestamp).toISOString().slice(0, 19).replace(/[:T]/g, '-')}.mp4`;
+                a.click();
             }
             
-            const avgCompletion = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
-            
-            elements.totalMeetings.textContent = totalMeetings;
-            elements.completedPercentage.textContent = `${avgCompletion}%`;
-            elements.totalTasksStats.textContent = totalTasks;
-            
-            // Обновляем счетчики выполненных и невыполненных задач
-            elements.completedCount.textContent = totalCompleted;
-            elements.pendingCount.textContent = totalTasks - totalCompleted;
-            
-            // Рендерим график выполнения
-            renderCompletionChart();
-            
-            // Рендерим статистику по планёркам
-            renderMeetingsStats();
-        }
-        
-        // Рендер графика выполнения
-        function renderCompletionChart() {
-            // Очищаем контейнер
-            elements.completionChart.innerHTML = '';
-            
-            // Берем последние 7 планёрок (или меньше)
-            const meetingsToShow = [...state.meetings]
-                .filter(m => m.completed)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .slice(0, 7)
-                .reverse();
-            
-            // Добавляем текущую планёрку, если есть задачи
-            if (state.currentMeeting && state.currentMeeting.tasks.length > 0) {
-                meetingsToShow.push(state.currentMeeting);
-            }
-            
-            if (meetingsToShow.length === 0) {
-                elements.completionChart.innerHTML = `
-                    <div class="flex items-center justify-center h-full text-gray-400">
-                        <i class="fas fa-chart-bar text-4xl mr-3"></i>
-                        <span>Нет данных для отображения</span>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Находим максимальное количество задач для масштабирования
-            const maxTasks = Math.max(...meetingsToShow.map(m => m.tasks.length), 10);
-            
-            // Создаем элементы графика
-            meetingsToShow.forEach((meeting, index) => {
-                const tasks = meeting.tasks;
-                const total = tasks.length;
-                const completed = tasks.filter(t => t.completed).length;
-                const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-                
-                const barHeight = total > 0 ? (total / maxTasks) * 100 : 5;
-                const completedHeight = total > 0 ? (completed / maxTasks) * 100 : 0;
-                
-                const bar = document.createElement('div');
-                bar.className = 'chart-bar';
-                bar.style.height = `${barHeight}%`;
-                bar.style.left = `${index * 40 + 20}px`;
-                bar.style.width = '30px';
-                
-                // Внутренний элемент для выполненных задач
-                const completedBar = document.createElement('div');
-                completedBar.className = 'chart-bar';
-                completedBar.style.height = `${completedHeight}%`;
-                completedBar.style.bottom = '0';
-                completedBar.style.left = '0';
-                completedBar.style.width = '100%';
-                completedBar.style.background = 'linear-gradient(to top, #10b981, #34d399)';
-                
-                bar.appendChild(completedBar);
-                
-                // Подпись под столбцом
-                const label = document.createElement('div');
-                label.className = 'absolute top-full left-0 w-full text-center text-xs text-gray-500 mt-1';
-                label.textContent = meeting.dateString.split(' ')[0]; // Только день и месяц
-                
-                // Подпись над столбцом
-                const valueLabel = document.createElement('div');
-                valueLabel.className = 'absolute bottom-full left-0 w-full text-center text-xs font-medium mb-1';
-                valueLabel.textContent = `${percentage}%`;
-                
-                bar.appendChild(label);
-                bar.appendChild(valueLabel);
-                
-                elements.completionChart.appendChild(bar);
-            });
-        }
-        
-        // Рендер статистики по планёркам
-        function renderMeetingsStats() {
-            // Очищаем контейнер
-            elements.meetingsStats.innerHTML = '';
-            
-            // Берем последние 5 планёрок
-            const recentMeetings = [...state.meetings]
-                .filter(m => m.completed)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .slice(0, 5);
-            
-            if (recentMeetings.length === 0) {
-                elements.meetingsStats.innerHTML = '<p class="text-sm text-gray-500">Нет данных</p>';
-                return;
-            }
-            
-            recentMeetings.forEach(meeting => {
-                const tasks = meeting.tasks;
-                const total = tasks.length;
-                const completed = tasks.filter(t => t.completed).length;
-                const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-                
-                const meetingStat = document.createElement('div');
-                meetingStat.className = 'mb-2';
-                
-                meetingStat.innerHTML = `
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm truncate mr-2">${meeting.title}</span>
-                        <span class="text-sm font-medium ${percentage === 100 ? 'text-green-500' : percentage > 50 ? 'text-blue-500' : 'text-yellow-500'}">${percentage}%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full ${percentage === 100 ? 'bg-green-500' : percentage > 50 ? 'bg-blue-500' : 'bg-yellow-500'}" style="width: ${percentage}%"></div>
-                    </div>
-                `;
-                
-                elements.meetingsStats.appendChild(meetingStat);
-            });
-        }
-        
-        // Переключение вкладок
-        function switchTab(tab) {
-            state.activeTab = tab;
-            
-            // Обновляем активную вкладку в UI
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('text-blue-500', 'border-b-2', 'border-blue-500');
-                btn.classList.add('text-gray-500', 'hover:text-gray-700');
-            });
-            
-            if (tab === 'current') {
-                elements.currentTab.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
-                elements.currentTab.classList.remove('text-gray-500', 'hover:text-gray-700');
-                elements.currentMeetingContainer.classList.remove('hidden');
-                elements.historyContainer.classList.add('hidden');
-                elements.statsContainer.classList.add('hidden');
-            } else if (tab === 'history') {
-                elements.historyTab.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
-                elements.historyTab.classList.remove('text-gray-500', 'hover:text-gray-700');
-                elements.currentMeetingContainer.classList.add('hidden');
-                elements.historyContainer.classList.remove('hidden');
-                elements.statsContainer.classList.add('hidden');
-                renderHistory();
-            } else if (tab === 'stats') {
-                elements.statsTab.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
-                elements.statsTab.classList.remove('text-gray-500', 'hover:text-gray-700');
-                elements.currentMeetingContainer.classList.add('hidden');
-                elements.historyContainer.classList.add('hidden');
-                elements.statsContainer.classList.remove('hidden');
-                renderStats();
-            }
-        }
-        
-        // Настройка обработчиков событий
-        function setupEventListeners() {
-            // Кнопки вкладок
-            elements.currentTab.addEventListener('click', () => switchTab('current'));
-            elements.historyTab.addEventListener('click', () => switchTab('history'));
-            elements.statsTab.addEventListener('click', () => switchTab('stats'));
-            
-            // Добавление задачи
-            elements.addTaskBtn.addEventListener('click', addTask);
-            elements.addFirstTask.addEventListener('click', () => {
-                elements.newTaskInput.focus();
-            });
-            elements.newTaskInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') addTask();
-            });
-            
-            // Сохранение заметок
-            elements.meetingNotes.addEventListener('blur', saveNotes);
-            elements.meetingNotes.addEventListener('keyup', (e) => {
-                if (e.ctrlKey && e.key === 'Enter') saveNotes();
-            });
-            
-            // Кнопка завершения планёрки
-            elements.completeMeetingBtn.addEventListener('click', completeCurrentMeeting);
-            
-            // Редактирование названия планёрки
-            elements.meetingTitle.addEventListener('click', () => {
-                elements.meetingTitle.classList.add('hidden');
-                elements.meetingTitleInput.value = state.currentMeeting.title || `Планёрка от ${state.currentMeeting.dateString}`;
-                elements.meetingTitleInput.classList.remove('hidden');
-                elements.meetingTitleInput.focus();
-            });
-            
-            elements.meetingTitleInput.addEventListener('blur', () => {
-                saveMeetingTitle();
-            });
-            
-            elements.meetingTitleInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    saveMeetingTitle();
+            // Delete video
+            function deleteVideo(videoId) {
+                if (confirm('Are you sure you want to delete this recording?')) {
+                    videoHistoryData = videoHistoryData.filter(v => v.id !== videoId);
+                    localStorage.setItem('videoHistory', JSON.stringify(videoHistoryData));
+                    renderVideoHistory();
                 }
-            });
+            }
             
-            // Модальное окно просмотра планёрки
-            elements.closeViewMeetingBtn.addEventListener('click', () => {
-                elements.viewMeetingModal.classList.add('hidden');
-                state.editingMeetingId = null;
-            });
+            // Estimate video size
+            function getVideoSize(videoUrl) {
+                // This is a rough estimation as we can't get exact size from blob URL
+                // In a real app, you would store the actual size when recording
+                const duration = videoHistoryData.find(v => v.url === videoUrl)?.duration || 10;
+                return duration * 100000; // Approximate bytes per second
+            }
             
-            elements.editMeetingBtn.addEventListener('click', editMeeting);
+            // Helper functions
+            function formatTimestamp() {
+                return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            }
             
-            // Модальное окно редактирования планёрки
-            elements.closeEditMeetingBtn.addEventListener('click', () => {
-                elements.editMeetingModal.classList.add('hidden');
-                if (state.editingMeetingId) {
-                    showMeetingDetails(state.editingMeetingId);
-                }
-            });
+            function formatDuration(seconds) {
+                if (!seconds) return '00:00';
+                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const secs = (seconds % 60).toString().padStart(2, '0');
+                return `${mins}:${secs}`;
+            }
             
-            elements.cancelEditMeetingBtn.addEventListener('click', () => {
-                elements.editMeetingModal.classList.add('hidden');
-                if (state.editingMeetingId) {
-                    showMeetingDetails(state.editingMeetingId);
-                }
-            });
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
             
-            elements.saveEditMeetingBtn.addEventListener('click', saveEditedMeeting);
-            
-            elements.deleteMeetingBtn.addEventListener('click', deleteMeeting);
-            
-            // Добавление задачи в режиме редактирования
-            elements.addTaskInEdit.addEventListener('click', () => {
-                const meeting = state.meetings.find(m => m.id === state.editingMeetingId);
-                if (!meeting) return;
-                
-                meeting.tasks.push({
-                    text: 'Новая задача',
-                    completed: false,
-                    createdAt: new Date().toISOString()
-                });
-                
-                editMeeting(); // Перерендериваем
-            });
-            
-            // Управление профилем пользователя
-            elements.userProfile.addEventListener('click', (e) => {
-                e.stopPropagation();
-                elements.userDropdown.classList.toggle('show');
-            });
-            
-            elements.syncDataBtn.addEventListener('click', syncData);
-            elements.logoutBtn.addEventListener('click', logout);
-            
-            // Закрытие выпадающего меню при клике вне его
-            document.addEventListener('click', (e) => {
-                if (!elements.authContainer.contains(e.target)) {
-                    elements.userDropdown.classList.remove('show');
-                }
-            });
-        }
-        
-        // Сохранение названия планёрки
-        function saveMeetingTitle() {
-            if (!state.currentMeeting) return;
-            
-            const newTitle = elements.meetingTitleInput.value.trim();
-            state.currentMeeting.title = newTitle;
-            
-            elements.meetingTitle.innerHTML = newTitle;
-            elements.meetingTitleInput.classList.add('hidden');
-            elements.meetingTitle.classList.remove('hidden');
-            
-            saveData();
-        }
-        
-        // Запуск приложения
-        document.addEventListener('DOMContentLoaded', init);
+            function showError(message) {
+                alert(message); // In a real app, you'd use a nicer notification system
+            }
+        });
     </script>
 </body>
 </html>
