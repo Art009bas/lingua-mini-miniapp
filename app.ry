@@ -1,41 +1,38 @@
-from flask import Flask, render_template, request, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, redirect
+import json
+import firebase_admin
+from firebase_admin import credentials, db
 
 app = Flask(__name__)
 
-# Настройки базы данных (Render подставит свой URL)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user:pass@localhost/dbname'  # Пока заглушка
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Инициализация Firebase
+def init_firebase():
+    cred = credentials.Certificate("firebase-config.json")
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': 'https://lingua-app-2d0ca.firebaseio.com'
+    })
 
-db = SQLAlchemy(app)
+init_firebase()
 
-# Модель пользователя
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+# Получаем ссылку на базу данных
+ref = db.reference('users')
 
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-# Создаём таблицы (если их нет)
-@app.before_first_request
-def create_tables():
-    db.create_all()
-
-# Главная страница (форма + список пользователей)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         username = request.form['username']
         email = request.form['email']
-        new_user = User(username=username, email=email)
-        db.session.add(new_user)
-        db.session.commit()
-        return redirect(url_for('index'))
+        # Добавляем пользователя в Firebase
+        new_user = {
+            'username': username,
+            'email': email
+        }
+        ref.push(new_user)
+        return redirect('/')
     
-    users = User.query.all()
-    return render_template('index.html', users=users)
+    # Получаем всех пользователей из Firebase
+    users = ref.get() or {}
+    return render_template('index.html', users=users.values())
 
 if __name__ == '__main__':
     app.run(debug=True)
