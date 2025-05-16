@@ -1,0 +1,3 @@
+__pycache__
+venv
+firebase-config.json  # Важно! Не коммитьте конфиг в репозиторий.
