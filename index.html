@@ -1,687 +1,406 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TikTok Style Video Recorder</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Custom styles */
-        body {
-            -webkit-tap-highlight-color: transparent;
-            overscroll-behavior: contain;
-            font-family: 'Inter', sans-serif;
-        }
-        
-        #camera-feed {
-            transform: scaleX(-1); /* Mirror effect */
-        }
-        
-        .video-thumbnail {
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        
-        .video-thumbnail:active {
-            transform: scale(0.98);
-        }
-        
-        .recording-indicator {
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        /* Fullscreen modal */
-        .modal {
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-            opacity: 0;
-        }
-        
-        .modal.active {
-            pointer-events: auto;
-            opacity: 1;
-        }
-        
-        /* Video player controls */
-        .video-controls {
-            transition: opacity 0.3s ease;
-        }
-        
-        .video-player:hover .video-controls {
-            opacity: 1;
-        }
-        
-        /* Progress bar */
-        .progress-bar {
-            height: 3px;
-        }
-        
-        .progress-filled {
-            width: 0%;
-        }
-        
-        /* Swipeable area */
-        .swipe-area {
-            touch-action: pan-y;
-        }
-        
-        /* TikTok style UI */
-        .tiktok-nav {
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .tiktok-tab {
-            position: relative;
-        }
-        
-        .tiktok-tab.active:after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 20px;
-            height: 3px;
-            background: white;
-            border-radius: 3px;
-        }
-        
-        .action-btn {
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-        }
-        
-        .record-btn {
-            border: 3px solid rgba(255,255,255,0.5);
-        }
-        
-        .record-btn.recording {
-            border-color: rgba(255, 0, 0, 0.5);
-        }
-    </style>
-</head>
-<body class="bg-black text-white min-h-screen">
-    <!-- Main App Screen -->
-    <div class="fixed inset-0 flex flex-col">
-        <!-- Header - TikTok style -->
-        <header class="tiktok-nav flex justify-between items-center px-4 py-3 z-10">
-            <button class="p-2">
-                <i class="fas fa-search text-xl"></i>
-            </button>
-            
-            <div class="flex space-x-6">
-                <div class="tiktok-tab active">Following</div>
-                <div class="tiktok-tab">For You</div>
-            </div>
-            
-            <button id="new-recording-btn" class="p-2">
-                <i class="fas fa-plus text-xl"></i>
-            </button>
-        </header>
-        
-        <!-- Video Feed (TikTok style) -->
-        <div id="video-feed" class="flex-1 relative overflow-hidden">
-            <!-- Videos will be added here dynamically -->
-            <div id="empty-history-message" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                <i class="fas fa-video text-4xl mb-4"></i>
-                <p class="text-lg">No videos yet</p>
-                <button id="start-recording-btn" class="mt-6 bg-red-500 text-white px-6 py-3 rounded-full">
-                    Record Your First Video
-                </button>
-            </div>
-        </div>
-        
-        <!-- Bottom Navigation - TikTok style -->
-        <nav class="flex justify-around items-center px-4 py-3 border-t border-gray-800">
-            <button class="p-2">
-                <i class="fas fa-home text-2xl"></i>
-            </button>
-            <button class="p-2">
-                <i class="fas fa-compass text-2xl"></i>
-            </button>
-            <button class="p-2">
-                <i class="fas fa-plus-circle text-3xl text-red-500"></i>
-            </button>
-            <button class="p-2">
-                <i class="fas fa-comment-dots text-2xl"></i>
-            </button>
-            <button class="p-2">
-                <i class="fas fa-user text-2xl"></i>
-            </button>
-        </nav>
-    </div>
-    
-    <!-- Recording Screen (Fullscreen) -->
-    <div id="recording-modal" class="modal fixed inset-0 bg-black z-50 flex flex-col">
-        <!-- Camera Preview -->
-        <div class="flex-1 relative">
-            <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover"></video>
-            
-            <!-- Recording Indicator -->
-            <div id="recording-status" class="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm hidden items-center">
-                <i class="fas fa-circle recording-indicator mr-2"></i>
-                <span id="recording-time">00:00</span>
-            </div>
-            
-            <!-- Close Button -->
-            <button id="close-recording" class="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-3 rounded-full">
-                <i class="fas fa-times"></i>
-            </button>
-            
-            <!-- TikTok style right sidebar -->
-            <div class="absolute right-4 bottom-24 flex flex-col items-center space-y-5">
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-music text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">Sounds</span>
-                </div>
-                
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-sliders text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">Effects</span>
-                </div>
-                
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-bolt text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">Flash</span>
-                </div>
-                
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-camera-rotate text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">Flip</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Controls -->
-        <div class="bg-black py-4 px-6 flex flex-col items-center">
-            <!-- Record Button -->
-            <button id="record-btn" class="record-btn bg-red-500 text-white w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                <i class="fas fa-circle text-xl"></i>
-            </button>
-            
-            <!-- Timer -->
-            <div class="text-white text-sm mb-2 hidden" id="recording-timer">00:00</div>
-        </div>
-    </div>
-    
-    <!-- Video Player Modal (Fullscreen) -->
-    <div id="video-player-modal" class="modal fixed inset-0 bg-black z-50 flex flex-col">
-        <div class="flex-1 relative video-player">
-            <video id="video-player" class="w-full h-full object-contain"></video>
-            
-            <!-- Close Button -->
-            <button id="close-player" class="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-3 rounded-full">
-                <i class="fas fa-times"></i>
-            </button>
-            
-            <!-- TikTok style right sidebar -->
-            <div class="absolute right-4 bottom-24 flex flex-col items-center space-y-5">
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-heart text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">24.5K</span>
-                </div>
-                
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-comment-dots text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">1.2K</span>
-                </div>
-                
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-bookmark text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">Save</span>
-                </div>
-                
-                <div class="flex flex-col items-center">
-                    <div class="action-btn w-12 h-12 rounded-full flex items-center justify-center">
-                        <i class="fas fa-share text-xl"></i>
-                    </div>
-                    <span class="text-xs mt-1">Share</span>
-                </div>
-            </div>
-            
-            <!-- Video Controls -->
-            <div class="video-controls absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4 opacity-0 transition-opacity">
-                <!-- Progress Bar -->
-                <div class="progress-bar bg-gray-600 rounded-full mb-3">
-                    <div class="progress-filled bg-red-500 h-full rounded-full"></div>
-                </div>
-                
-                <div class="flex justify-between items-center">
-                    <!-- Current Time -->
-                    <span id="current-time" class="text-white text-sm">00:00</span>
-                    
-                    <!-- Play/Pause Button -->
-                    <button id="play-pause" class="bg-white bg-opacity-20 text-white p-3 rounded-full">
-                        <i class="fas fa-play"></i>
-                    </button>
-                    
-                    <!-- Duration -->
-                    <span id="duration" class="text-white text-sm">00:00</span>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // DOM Elements
-            const videoFeed = document.getElementById('video-feed');
-            const emptyHistoryMessage = document.getElementById('empty-history-message');
-            const newRecordingBtn = document.getElementById('new-recording-btn');
-            const startRecordingBtn = document.getElementById('start-recording-btn');
-            const recordingModal = document.getElementById('recording-modal');
-            const videoPlayerModal = document.getElementById('video-player-modal');
-            const closeRecording = document.getElementById('close-recording');
-            const closePlayer = document.getElementById('close-player');
-            
-            // Camera elements
-            const cameraFeed = document.getElementById('camera-feed');
-            const recordBtn = document.getElementById('record-btn');
-            const recordingStatus = document.getElementById('recording-status');
-            const recordingTime = document.getElementById('recording-time');
-            const recordingTimer = document.getElementById('recording-timer');
-            
-            // Video player elements
-            const videoPlayer = document.getElementById('video-player');
-            const playPauseBtn = document.getElementById('play-pause');
-            const currentTimeEl = document.getElementById('current-time');
-            const durationEl = document.getElementById('duration');
-            const progressBar = document.querySelector('.progress-bar');
-            const progressFilled = document.querySelector('.progress-filled');
-            
-            // Variables
-            let stream = null;
-            let mediaRecorder = null;
-            let recordedChunks = [];
-            let currentDeviceId = null;
-            let cameras = [];
-            let recordingInterval = null;
-            let recordingSeconds = 0;
-            let videoHistoryData = JSON.parse(localStorage.getItem('videoHistory')) || [];
-            let isFrontCamera = true;
-            let touchStartX = 0;
-            let touchEndX = 0;
-            
-            // Initialize the app
-            init();
-            
-            function init() {
-                // Load video history
-                renderVideoFeed();
-                
-                // Event listeners
-                newRecordingBtn.addEventListener('click', openRecordingModal);
-                startRecordingBtn.addEventListener('click', openRecordingModal);
-                closeRecording.addEventListener('click', closeRecordingModal);
-                closePlayer.addEventListener('click', closeVideoPlayer);
-                recordBtn.addEventListener('click', toggleRecording);
-                
-                // Flip camera button in the sidebar
-                document.querySelector('.fa-camera-rotate').closest('.action-btn').addEventListener('click', switchCamera);
-                
-                // Video player controls
-                playPauseBtn.addEventListener('click', togglePlayPause);
-                videoPlayer.addEventListener('timeupdate', updateProgressBar);
-                videoPlayer.addEventListener('click', toggleVideoControls);
-                videoPlayer.addEventListener('ended', videoEnded);
-                
-                // Progress bar click
-                progressBar.addEventListener('click', seek);
-                
-                // Touch events for swipe gestures
-                videoPlayer.addEventListener('touchstart', handleTouchStart, false);
-                videoPlayer.addEventListener('touchmove', handleTouchMove, false);
-                videoPlayer.addEventListener('touchend', handleTouchEnd, false);
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+							<style>
+								body {
+									background-color: white; /* Ensure the iframe has a white background */
+								}
+
+								
+							</style>
+                        </head>
+                        <body>
+                            <!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Аренда компрессора | Новосибирск</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-white text-gray-800">
+  <div id="root"></div>
+
+  <script type="text/babel">
+
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [menuOpen, setMenuOpen] = useState(false);
+      const [activePage, setActivePage] = useState('main');
+      const [selectedBlogPost, setSelectedBlogPost] = useState(null);
+
+      // Тестовые данные блога
+      const blogPosts = [
+        {
+          id: 1,
+          title: "Как выбрать компрессор для строительных работ",
+          excerpt: "Компрессор — важная техника для стройки. Рассказываем, как правильно выбрать подходящий агрегат.",
+          content: "При выборе компрессора важно учитывать несколько факторов: мощность, давление, объем ресивера и тип двигателя...",
+          image: "https://picsum.photos/id/1015/800/400"
+        },
+        {
+          id: 2,
+          title: "Ремонт дорог с помощью отбойного молотка",
+          excerpt: "Отбойные молотки в паре с компрессорами позволяют выполнять сложные задачи быстро и качественно.",
+          content: "Современные технологии позволяют значительно ускорить ремонт дорожного покрытия. Отбойные молотки обеспечивают точное разрушение бетона без лишней вибрации...",
+          image: "https://picsum.photos/id/1016/800/400"
+        },
+        {
+          id: 3,
+          title: "Техническое обслуживание компрессоров",
+          excerpt: "Как сохранить оборудование в рабочем состоянии дольше?",
+          content: "Чтобы ваш компрессор служил долго, необходимо регулярно проводить техосмотр и замену масла, фильтров и ремней...",
+          image: "https://picsum.photos/id/1017/800/400"
+        }
+      ];
+
+      // Обработка хэш-роутинга
+      useEffect(() => {
+        const handleHashChange = () => {
+          const hash = window.location.hash.replace('#', '');
+          if (hash.startsWith('blog/')) {
+            const postId = parseInt(hash.split('/').pop(), 10);
+            const post = blogPosts.find(p => p.id === postId);
+            if (post) {
+              setSelectedBlogPost(post);
+              setActivePage('blog-detail');
+            } else {
+              setActivePage('not-found');
             }
+          } else {
+            setSelectedBlogPost(null);
+            setActivePage(hash || 'main');
+          }
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        handleHashChange(); // Проверка начального состояния
+
+        return () => window.removeEventListener('hashchange', handleHashChange);
+      }, [blogPosts]);
+
+      const renderMainPage = () => (
+        <>
+          {/* Hero Section */}
+          <section className="relative bg-gradient-to-r from-blue-600 to-indigo-700 text-white overflow-hidden">
+            <div className="absolute inset-0 opacity-20">
+              <img src="https://picsum.photos/seed/construction/1920/1080" alt="Construction background" className="w-full h-full object-cover" />
+            </div>
+            <div className="container mx-auto px-4 py-20 relative">
+              <div className="max-w-3xl">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                  Аренда компрессора высокого давления в Новосибирске
+                </h1>
+                <p className="text-xl md:text-2xl mb-8 opacity-90">
+                  От 500 рублей в час. Комплектация отбойными молотками и другими инструментами.
+                </p>
+                <a href="#contact" className="inline-block bg-yellow-400 text-gray-900 hover:bg-yellow-300 font-bold py-3 px-8 rounded-lg shadow-lg transform transition-transform duration-300 hover:scale-105">
+                  Заказать звонок
+                </a>
+              </div>
+            </div>
             
-            // Render video feed (TikTok style)
-            function renderVideoFeed() {
-                if (videoHistoryData.length === 0) {
-                    emptyHistoryMessage.classList.remove('hidden');
-                    return;
-                }
+            <div className="absolute bottom-0 left-0 w-full">
+              <svg className="w-full h-16 text-white" viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 120V0C0 0 240 80 480 80C720 80 960 0 1200 0C1440 0 1440 120 1440 120H0Z" fill="currentColor"/>
+              </svg>
+            </div>
+          </section>
+
+          {/* Services Section */}
+          <section id="services" className="py-16 bg-gray-50">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Наши услуги</h2>
+                <div className="w-20 h-1 bg-blue-600 mx-auto"></div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <div className="bg-white rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-xl">
+                  <div className="h-48 overflow-hidden">
+                    <img src="https://picsum.photos/seed/compressor/800/600" alt="Аренда компрессора" className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-800 mb-3">Аренда компрессора</h3>
+                    <p className="text-gray-600">Компрессоры высокого давления для любых задач. От 500 рублей в час.</p>
+                  </div>
+                </div>
                 
-                emptyHistoryMessage.classList.add('hidden');
-                videoFeed.innerHTML = '';
+                <div className="bg-white rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-xl">
+                  <div className="h-48 overflow-hidden">
+                    <img src="https://picsum.photos/seed/hammer/800/600" alt="Отбойные молотки" className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-800 mb-3">Отбойные молотки</h3>
+                    <p className="text-gray-600">Профессиональный инструмент в комплекте с арендованным компрессором.</p>
+                  </div>
+                </div>
                 
-                // For TikTok style, we'll show one video at a time
-                videoHistoryData.forEach(video => {
-                    const videoItem = document.createElement('div');
-                    videoItem.className = 'absolute inset-0';
-                    videoItem.innerHTML = `
-                        <video src="${video.url}" class="w-full h-full object-cover"></video>
-                        <div class="absolute bottom-20 left-4 max-w-xs">
-                            <div class="text-lg font-semibold">@username</div>
-                            <div class="text-sm my-2">This is a sample video description #tiktok</div>
-                            <div class="flex items-center text-sm">
-                                <i class="fas fa-music mr-2"></i>
-                                <span>Original Sound</span>
-                            </div>
-                        </div>
-                    `;
-                    
-                    videoItem.addEventListener('click', () => playVideo(video));
-                    videoFeed.appendChild(videoItem);
-                });
-            }
-            
-            // Open recording modal
-            async function openRecordingModal() {
-                recordingModal.classList.add('active');
-                document.body.style.overflow = 'hidden';
+                <div className="bg-white rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-xl">
+                  <div className="h-48 overflow-hidden">
+                    <img src="https://picsum.photos/seed/delivery/800/600" alt="Доставка и поддержка" className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-800 mb-3">Доставка и поддержка</h3>
+                    <p className="text-gray-600">Быстрая доставка по Новосибирску и области. Техническая поддержка 24/7.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Blog Section */}
+          <section id="blog" className="py-16 bg-white">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Наш блог</h2>
+                <div className="w-20 h-1 bg-blue-600 mx-auto"></div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {blogPosts.map((post) => (
+                  <div key={post.id} onClick={() => window.location.hash = `blog/${post.id}`} className="bg-white rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300 hover:-translate-y-2 hover:shadow-xl cursor-pointer">
+                    <img src={post.image} alt={post.title} className="w-full h-48 object-cover" />
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">{post.title}</h3>
+                      <p className="text-gray-600">{post.excerpt}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* CTA Section */}
+          <section className="py-16 bg-blue-600 text-white">
+            <div className="container mx-auto px-4 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">Хотите узнать больше об аренде компрессора?</h2>
+              <a href="#contact" className="inline-block bg-yellow-400 text-gray-900 hover:bg-yellow-300 font-bold py-3 px-8 rounded-lg shadow-lg transform transition-transform duration-300 hover:scale-105">
+                Заказать звонок
+              </a>
+            </div>
+          </section>
+
+          {/* Contact Form Section */}
+          <section id="contact" className="py-16 bg-white">
+            <div className="container mx-auto px-4 max-w-3xl">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Свяжитесь с нами</h2>
+                <div className="w-20 h-1 bg-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Оставьте свои контактные данные и мы свяжемся с вами в ближайшее время</p>
+              </div>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                alert("Спасибо! Мы скоро свяжемся с вами.");
+              }} className="space-y-6">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
+                  <input
+                    type="text"
+                    id="name"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    placeholder="Ваше имя"
+                  />
+                </div>
                 
-                try {
-                    const constraints = {
-                        video: {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            facingMode: isFrontCamera ? 'user' : 'environment'
-                        },
-                        audio: true
-                    };
-                    
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    cameraFeed.srcObject = stream;
-                    
-                    // Initialize media recorder
-                    initMediaRecorder();
-                    
-                    // Get current device ID
-                    const track = stream.getVideoTracks()[0];
-                    currentDeviceId = track.getSettings().deviceId;
-                    
-                } catch (err) {
-                    console.error("Error accessing camera:", err);
-                    alert("Could not access the camera. Please make sure you've granted camera and microphone permissions.");
-                    closeRecordingModal();
-                }
-            }
-            
-            // Close recording modal
-            function closeRecordingModal() {
-                // Stop recording if active
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    mediaRecorder.stop();
-                    stopRecording();
-                }
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    placeholder="+7 (___) ___-__-__"
+                  />
+                </div>
                 
-                // Stop camera
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    cameraFeed.srcObject = null;
-                }
+                <div>
+                  <button
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-colors duration-300"
+                  >
+                    Отправить заявку
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="bg-gray-800 text-white py-12">
+            <div className="container mx-auto px-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                  <div className="flex items-center mb-4">
+                    <svg className="w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 4L4 8V16L12 20L20 16V8L12 4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M12 4V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M20 12H16C14.9391 12 13.9218 11.5786 13.1716 10.8284C12.4214 10.0781 12 9.0609 12 8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="ml-2 text-xl font-bold">CompressorRent</span>
+                  </div>
+                  <p className="text-gray-400">
+                    Профессиональная аренда компрессоров высокого давления в Новосибирске и области.
+                  </p>
+                </div>
                 
-                recordingModal.classList.remove('active');
-                document.body.style.overflow = 'auto';
-            }
-            
-            // Initialize media recorder
-            function initMediaRecorder() {
-                if (!stream) return;
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Контакты</h3>
+                  <ul className="space-y-2 text-gray-400">
+                    <li className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 16.25V7.75C22 6.64543 21.1046 5.75 20 5.75H4C2.89543 5.75 2 6.64543 2 7.75V16.25C2 17.3546 2 18.25 4 18.25H20C21.1046 18.25 22 17.3546 22 16.25Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M2 8.25L12 14.25L22 8.25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      info@compressorrent.ru
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 16.25V7.75C22 6.64543 21.1046 5.75 20 5.75H4C2.89543 5.75 2 6.64543 2 7.75V16.25C2 17.3546 2.89543 18.25 4 18.25H20C21.1046 18.25 22 17.3546 22 16.25Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M16.25 12H7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      +7 (913) 123-45-67
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 21C15.5 18 20 15 20 10C20 6.68629 17.3137 4 14 4C10.6863 4 8 6.68629 8 10C8 15 12.5 18 16 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="14" cy="10" r="2" stroke="currentColor" strokeWidth="2"/>
+                      </svg>
+                      Новосибирск, Россия
+                    </li>
+                  </ul>
+                </div>
                 
-                recordedChunks = [];
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = function(e) {
-                    if (e.data.size > 0) {
-                        recordedChunks.push(e.data);
-                    }
-                };
-                
-                mediaRecorder.onstop = function() {
-                    const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-                    const videoUrl = URL.createObjectURL(blob);
-                    
-                    // Add to history
-                    const videoData = {
-                        id: Date.now(),
-                        url: videoUrl,
-                        timestamp: new Date().toISOString(),
-                        duration: recordingSeconds
-                    };
-                    
-                    videoHistoryData.unshift(videoData);
-                    localStorage.setItem('videoHistory', JSON.stringify(videoHistoryData));
-                    renderVideoFeed();
-                    
-                    // Reset recording
-                    recordedChunks = [];
-                    recordingSeconds = 0;
-                };
-            }
-            
-            // Toggle recording
-            function toggleRecording() {
-                if (!mediaRecorder) return;
-                
-                if (mediaRecorder.state === 'inactive') {
-                    startRecording();
-                } else {
-                    mediaRecorder.stop();
-                    stopRecording();
-                }
-            }
-            
-            // Start recording
-            function startRecording() {
-                if (!mediaRecorder) return;
-                
-                mediaRecorder.start(100); // Collect data every 100ms
-                recordingStatus.classList.remove('hidden');
-                recordBtn.classList.add('recording');
-                recordBtn.innerHTML = '<i class="fas fa-square text-xl"></i>';
-                recordingTimer.classList.remove('hidden');
-                
-                // Start timer
-                recordingSeconds = 0;
-                updateRecordingTime();
-                recordingInterval = setInterval(updateRecordingTime, 1000);
-            }
-            
-            // Stop recording
-            function stopRecording() {
-                if (!mediaRecorder) return;
-                
-                recordingStatus.classList.add('hidden');
-                recordBtn.classList.remove('recording');
-                recordBtn.innerHTML = '<i class="fas fa-circle text-xl"></i>';
-                recordingTimer.classList.add('hidden');
-                
-                // Stop timer
-                if (recordingInterval) {
-                    clearInterval(recordingInterval);
-                    recordingInterval = null;
-                }
-            }
-            
-            // Update recording time
-            function updateRecordingTime() {
-                recordingSeconds++;
-                const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
-                const seconds = (recordingSeconds % 60).toString().padStart(2, '0');
-                recordingTime.textContent = `${minutes}:${seconds}`;
-                recordingTimer.textContent = `${minutes}:${seconds}`;
-            }
-            
-            // Switch camera
-            async function switchCamera() {
-                if (!stream) return;
-                
-                // Stop current stream and recording if active
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    mediaRecorder.stop();
-                    stopRecording();
-                }
-                
-                stream.getTracks().forEach(track => track.stop());
-                isFrontCamera = !isFrontCamera;
-                
-                try {
-                    const constraints = {
-                        video: {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            facingMode: isFrontCamera ? 'user' : 'environment'
-                        },
-                        audio: true
-                    };
-                    
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    cameraFeed.srcObject = stream;
-                    
-                    // Reinitialize media recorder with new stream
-                    initMediaRecorder();
-                    
-                } catch (err) {
-                    console.error("Error switching camera:", err);
-                    alert("Could not switch camera. Please try again.");
-                }
-            }
-            
-            // Play video in fullscreen
-            function playVideo(video) {
-                videoPlayerModal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-                
-                videoPlayer.src = video.url;
-                videoPlayer.play();
-                
-                // Update duration
-                setTimeout(() => {
-                    durationEl.textContent = formatDuration(videoPlayer.duration);
-                }, 100);
-                
-                // Show controls briefly
-                showVideoControls();
-                setTimeout(hideVideoControls, 2000);
-            }
-            
-            // Close video player
-            function closeVideoPlayer() {
-                videoPlayer.pause();
-                videoPlayerModal.classList.remove('active');
-                document.body.style.overflow = 'auto';
-            }
-            
-            // Toggle play/pause
-            function togglePlayPause() {
-                if (videoPlayer.paused) {
-                    videoPlayer.play();
-                    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                } else {
-                    videoPlayer.pause();
-                    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                }
-            }
-            
-            // Update progress bar
-            function updateProgressBar() {
-                const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-                progressFilled.style.width = `${percent}%`;
-                currentTimeEl.textContent = formatDuration(videoPlayer.currentTime);
-            }
-            
-            // Seek on progress bar click
-            function seek(e) {
-                const percent = e.offsetX / progressBar.offsetWidth;
-                videoPlayer.currentTime = percent * videoPlayer.duration;
-            }
-            
-            // Video ended
-            function videoEnded() {
-                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-            }
-            
-            // Show video controls
-            function showVideoControls() {
-                document.querySelector('.video-controls').style.opacity = '1';
-            }
-            
-            // Hide video controls
-            function hideVideoControls() {
-                if (!videoPlayer.paused) {
-                    document.querySelector('.video-controls').style.opacity = '0';
-                }
-            }
-            
-            // Toggle video controls
-            function toggleVideoControls() {
-                const controls = document.querySelector('.video-controls');
-                if (controls.style.opacity === '1') {
-                    hideVideoControls();
-                } else {
-                    showVideoControls();
-                }
-            }
-            
-            // Touch events for swipe gestures
-            function handleTouchStart(e) {
-                touchStartX = e.changedTouches[0].screenX;
-            }
-            
-            function handleTouchMove(e) {
-                e.preventDefault(); // Prevent scrolling while swiping
-            }
-            
-            function handleTouchEnd(e) {
-                touchEndX = e.changedTouches[0].screenX;
-                handleSwipe();
-            }
-            
-            // Handle swipe gestures
-            function handleSwipe() {
-                const threshold = 50; // Minimum swipe distance
-                const diff = touchStartX - touchEndX;
-                
-                // Left swipe (next)
-                if (diff > threshold) {
-                    // Seek forward 10 seconds
-                    videoPlayer.currentTime = Math.min(videoPlayer.currentTime + 10, videoPlayer.duration);
-                }
-                // Right swipe (previous)
-                else if (diff < -threshold) {
-                    // Seek backward 10 seconds
-                    videoPlayer.currentTime = Math.max(videoPlayer.currentTime - 10, 0);
-                }
-                
-                // Show controls after swipe
-                showVideoControls();
-            }
-            
-            // Helper functions
-            function formatDuration(seconds) {
-                if (!seconds) return '00:00';
-                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-                const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-                return `${mins}:${secs}`;
-            }
-            
-            function formatDate(timestamp) {
-                const date = new Date(timestamp);
-                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            }
-        });
-    </script>
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Часы работы</h3>
+                  <ul className="space-y-2 text-gray-400">
+                    <li>Понедельник - Воскресенье</li>
+                    <li>00:00 - 23:59</li>
+                    <li className="mt-4">Без выходных и праздников</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-700 mt-12 pt-8 text-center text-gray-400">
+                <p>&copy; {new Date().getFullYear()} CompressorRent. Все права защищены.</p>
+              </div>
+            </div>
+          </footer>
+        </>
+      );
+
+      const renderBlogDetail = () => (
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4 max-w-3xl">
+            <button onClick={() => window.location.hash = 'blog'} className="mb-4 text-blue-600 hover:underline">&larr; Назад к блогу</button>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">{selectedBlogPost.title}</h1>
+            <img src={selectedBlogPost.image} alt={selectedBlogPost.title} className="w-full h-64 object-cover rounded-lg mb-6" />
+            <p className="text-gray-700 leading-relaxed whitespace-pre-line">{selectedBlogPost.content}</p>
+          </div>
+        </section>
+      );
+
+      const renderNotFound = () => (
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Страница не найдена</h2>
+            <p className="text-gray-600 mb-6">Извините, запрашиваемая вами страница не существует.</p>
+            <a href="#blog" className="inline-block bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700">Вернуться к блогу</a>
+          </div>
+        </section>
+      );
+
+      const renderCurrentPage = () => {
+        switch (activePage) {
+          case 'main':
+            return renderMainPage();
+          case 'blog-detail':
+            return selectedBlogPost ? renderBlogDetail() : renderNotFound();
+          case 'not-found':
+            return renderNotFound();
+          default:
+            return renderMainPage();
+        }
+      };
+
+      return (
+        <div>
+          {/* Header */}
+          <header className="sticky top-0 z-50 bg-white shadow-md">
+            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+              <div className="flex items-center">
+                <svg className="w-10 h-10 text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 4L4 8V16L12 20L20 16V8L12 4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 4V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M20 12H16C14.9391 12 13.9218 11.5786 13.1716 10.8284C12.4214 10.0781 12 9.0609 12 8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="ml-2 text-xl font-bold text-gray-800">CompressorRent</span>
+              </div>
+
+              {/* Desktop Navigation */}
+              <nav className="hidden md:flex space-x-8">
+                <a href="#services" className="text-gray-600 hover:text-blue-600 transition-colors">Услуги</a>
+                <a href="#blog" className="text-gray-600 hover:text-blue-600 transition-colors">Блог</a>
+                <a href="#contact" className="text-gray-600 hover:text-blue-600 transition-colors">Контакты</a>
+              </nav>
+
+              <button 
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="md:hidden focus:outline-none"
+                aria-label="Toggle menu"
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {menuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+                  )}
+                </svg>
+              </button>
+            </div>
+
+            {/* Mobile Menu */}
+            {menuOpen && (
+              <div className="md:hidden bg-white shadow-lg">
+                <div className="px-2 pt-2 pb-4 space-y-1">
+                  <a href="#services" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100" onClick={() => setMenuOpen(false)}>Услуги</a>
+                  <a href="#blog" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100" onClick={() => setMenuOpen(false)}>Блог</a>
+                  <a href="#contact" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100" onClick={() => setMenuOpen(false)}>Контакты</a>
+                </div>
+              </div>
+            )}
+          </header>
+
+          {/* Основной контент */}
+          {renderCurrentPage()}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 </body>
 </html>
+
+
+
+							<script>
+                            	
+							</script>
+                        </body>
+                        </html>
+                    
